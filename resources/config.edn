@@ -1,0 +1,4 @@
+{:clodenames.config/rows      5
+ :clodenames.config/cols      5
+ :clodenames.config/civilians 7
+ :clodenames.config/assassins 1}
