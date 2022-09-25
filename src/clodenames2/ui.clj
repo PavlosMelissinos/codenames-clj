@@ -4,8 +4,6 @@
             [clojure.math :as math]
             [clojure.string :as str]))
 
-#_(def *state (atom {}))
-
 (def card-width 100)
 (def card-height 100)
 
@@ -14,17 +12,6 @@
    :-fx-padding          10
    :-fx-border-color     :black
    :-fx-border-radius    4})
-
-(defmulti event-handler :event/type)
-
-(defmethod event-handler ::set-friction [e]
-  (swap! *state assoc :friction (:fx/event e)))
-
-(defmethod event-handler ::set-gravity [e]
-  (swap! *state assoc :gravity (:fx/event e)))
-
-#_(defmethod event-handler ::... []
-  (core/reveal ))
 
 (def colors
   ;; names from https://colornames.org
@@ -55,10 +42,6 @@
    :card-assassin-primary-alt (:white colors)
    :card-civilian-primary-alt (:black colors)})
 
-#_(defn bg-color [{:keys [team revealed assassin] :as card}]
-  (cond
-    assassin (:card-assassin-primary color-palette)))
-
 (defn team [{:keys [team revealed assassin] :as card}]
   (cond
     (not revealed) :hidden
@@ -66,11 +49,14 @@
     (not team) :civilian
     :else team))
 
-(defmethod event-handler ::set-friction [e]
-  (swap! *state assoc :friction (:fx/event e)))
+;; Events
 
-(defmethod event-handler ::set-gravity [e]
-  (swap! *state assoc :gravity (:fx/event e)))
+(defmulti event-handler :event/type)
+
+(defmethod event-handler ::card-clicked [{:keys [idx] :as e}]
+  (swap! *state update :grid core/reveal idx))
+
+;; Styles
 
 (defmulti card-style team)
 
@@ -92,9 +78,10 @@
   {:-fx-background-color (:card-civilian-primary color-palette)
    :-fx-text-fill (:card-civilian-primary-alt color-palette)})
 
-(defn card [{:keys [codename revealed assassin] :as card}]
+(defn card [{:keys [codename revealed assassin idx] :as card}]
   {:fx/type :h-box
    :style {:-fx-padding 5}
+   :on-mouse-clicked (assoc card :event/type ::card-clicked)
    :alignment :center
    :children [{:fx/type  :v-box
                :h-box/hgrow :always
@@ -108,24 +95,17 @@
 
 (defn grid-pane [{:keys [grid event role] :as _state}]
   {:fx/type :grid-pane
-   ;;:spacing 30
    :style {:-fx-padding 30}
    :children (map-indexed (fn [idx it]
                             (merge it
                                    {:fx/type card
-                                    ;;:grid-pane/fill-width 4
-                                    ;;:grid-pane/percent-height 80
                                     :grid-pane/column (math/floor-div idx 5)
                                     :grid-pane/row (mod idx 5)
                                     :grid-pane/hgrow :always
                                     :grid-pane/vgrow :always
-                                    ;;:grid-pane/alignment :center
-                                    ;;:on-click {:event/type event}
-                                    }
+                                    :idx idx}
                                    (when (= role :spymaster)
                                      {:revealed true}))) grid)})
-
-(renderer)
 
 (defn slider-view [{:keys [min max value label event]}]
   {:fx/type :h-box
@@ -149,34 +129,31 @@
                               :text (str "View: " (str/capitalize (name role)))}
                              (assoc state :fx/type grid-pane)]}}})
 
+(def renderer
+  (fx/create-renderer
+   :middleware (fx/wrap-map-desc (fn [state]
+                                   {:fx/type fx/ext-many
+                                    :desc [(merge state
+                                                  {:fx/type game-window-view
+                                                   :role :spymaster})
+                                           (merge state
+                                                  {:fx/type game-window-view
+                                                   :role :spy})]}))
+   :opts {:fx.opt/map-event-handler event-handler}))
+
+;;(renderer)
+
 (comment
 
   (def cfg (core/load-config))
 
   (def *state (atom {:grid (core/init cfg)}))
 
-  (def renderer
-    (fx/create-renderer
-     :middleware (fx/wrap-map-desc (fn [state]
-                                     {:fx/type fx/ext-many
-                                      :desc [(merge state
-                                                    {:fx/type game-window-view
-                                                     :role :spymaster})
-                                             (merge state
-                                                    {:fx/type game-window-view
-                                                     :role :spy})]}))
-     :opts {:fx.opt/map-event-handler event-handler}))
+  (reset! *state {:grid (core/init cfg)})
 
   (fx/mount-renderer *state renderer)
 
-
-  @*state
-
-  (render-grid @*state)
-
-  (renderer)
-
-  (fx/mount-renderer *state renderer)
+  (fx/unmount-renderer *state renderer)
 
   (renderer)
   ,)
