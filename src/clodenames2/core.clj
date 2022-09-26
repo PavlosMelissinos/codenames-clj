@@ -19,8 +19,8 @@
      (println (type words))
      (-> cfg-file slurp edn/read-string (assoc :words words)))))
 
-(defn init [{::cfg/keys [rows cols civilians assassins]
-             :keys [words] :as cfg}]
+(defn grid [{::cfg/keys [rows cols civilians assassins]
+             :keys [words] :as _cfg}]
   (let [board-size (* rows cols)
         non-spies  (+ civilians assassins)
         team-size  (math/floor-div (- board-size non-spies) 2)
@@ -34,13 +34,17 @@
          shuffle
          (mapv #(assoc %2 :codename %1) codenames))))
 
+(defn init [{::cfg/keys [rows cols civilians assassins]
+             :keys [words] :as cfg}]
+  {:grid (grid cfg)
+   :cfg  cfg})
+
 (defn hidden? [card] (-> card :revealed not))
 (defn allowed-move? [board move] (some-> (get board move) hidden?))
 
 (defn reveal [grid loc] (update grid loc assoc :revealed true))
 
 (comment
-
   (def words (-> "words.en.txt"
                  io/resource
                  slurp
@@ -52,17 +56,5 @@
                edn/read-string
                (assoc :words words)))
 
-  (every? #(= (count %) 25) (repeatedly 1000 #(init cfg)))
-
-  (def grid (init cfg))
-
-  [{:team :red} {} {:team :red} {:team :red} {:team :red} {:team :blue} {} {:team :blue} {:team :red} {} {:assassin true} {} {:team :blue} {:team :red} {} {:team :blue} {:team :blue} {:team :blue} {:team :blue} {} {}]
-
-  (hidden? {:team :red})
-  (hidden? {:revealed true})
-
-  (allowed-move? grid 2)
-  (-> (reveal grid 2)
-      (allowed-move? 2))
-
+  (def state (init cfg))
   ,)

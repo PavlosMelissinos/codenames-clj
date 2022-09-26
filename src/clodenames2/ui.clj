@@ -4,6 +4,8 @@
             [clojure.math :as math]
             [clojure.string :as str]))
 
+(defonce *state (atom (core/init (core/load-config))))
+
 (def card-width 100)
 (def card-height 100)
 
@@ -121,26 +123,24 @@
                               :text (str "View: " (str/capitalize (name role)))}
                              (assoc state :fx/type grid-pane)]}}})
 
-(renderer)
+(defonce renderer ;; todo: does this really belong here?
+  (fx/create-renderer
+   :middleware (fx/wrap-map-desc (fn [state]
+                                   {:fx/type fx/ext-many
+                                    :desc [(merge state
+                                                  {:fx/type game-window-view
+                                                   :role :spymaster})
+                                           (merge state
+                                                  {:fx/type game-window-view
+                                                   :role :spy})]}))
+   :opts {:fx.opt/map-event-handler event-handler}))
 
 (comment
 
   (def cfg (core/load-config))
-  (reset! *state {:grid (core/init cfg)})
+  (reset! *state (core/init cfg))
 
-  (def *state (atom {:grid (core/init cfg)}))
-
-  (def renderer
-    (fx/create-renderer
-     :middleware (fx/wrap-map-desc (fn [state]
-                                     {:fx/type fx/ext-many
-                                      :desc [(merge state
-                                                    {:fx/type game-window-view
-                                                     :role :spymaster})
-                                             (merge state
-                                                    {:fx/type game-window-view
-                                                     :role :spy})]}))
-     :opts {:fx.opt/map-event-handler event-handler}))
+  (def *state (atom (core/init cfg)))
 
   (fx/mount-renderer *state renderer)
 
