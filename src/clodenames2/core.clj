@@ -24,7 +24,7 @@
   (let [board-size (* rows cols)
         non-spies  (+ civilians assassins)
         team-size  (math/floor-div (- board-size non-spies) 2)
-        [t1 t2] (shuffle [:red :blue])
+        [t1 t2]    (shuffle [:red :blue])
         codenames  (take board-size (shuffle words))]
     (->> [(repeat (inc team-size) {:team t1})
           (repeat team-size {:team t2})

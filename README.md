@@ -10,14 +10,21 @@ When you click on a card on either board, it is revealed!
 The game ends when a team reveals all of its spies or when someone reveals the
 assassin.
 
+## Features
+
+- Supports boards of arbitrary size
+
 ## TODO
 
 * [ ] Release jar
 * [ ] Proper state management
-* [ ] Instructions
-* [ ] Game over screen
-* [ ] Show whose turn it is
-* [ ] Play again
+* [ ] Desktop app
+  * [ ] Start
+  * [ ] Settings screen
+  * [ ] Game over screen
+  * [ ] Show whose turn it is
+  * [ ] Main menu screen/Play again
+* [ ] Instructions/Demos/Screenshots
 * [ ] Web app
 * [ ] Android app
 * [ ] Custom words (e.g. any language)
