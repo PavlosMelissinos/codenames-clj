@@ -1,0 +1,20 @@
+{:paths    ["src" "resources"]
+ :deps     {org.clojure/clojure       {:mvn/version "1.11.1"}
+            org.clojure/tools.logging {:mvn/version "1.2.4"}
+            expound/expound           {:mvn/version "0.9.0"}
+
+            ;; ui
+            io.github.cljfx/cljfx     {:git/sha "145060344701952a29aad4a43e7f98ee7777005c"}
+
+            org.slf4j/slf4j-simple    {:mvn/version "2.0.1"}}
+ :aliases  {:dev     {:jvm-opts    ["-Duser.timezone=UTC"
+                                    "-XX:-OmitStackTraceInFastThrow"]
+                      :extra-paths ["dev"
+                                    "test"
+                                    "test-resources"]
+                      :extra-deps  {io.github.clojure/tools.deps.alpha {:git/sha "83a477b305839c697666401508c395cfed29506a"}
+                                    lambdaisland/kaocha         {:mvn/version "1.70.1086"}}}
+
+            :test    {:extra-paths ["test"
+                                    "test-resources"]
+                      :main-opts   ["-m" "kaocha.runner" "--config-file" "kaocha.edn"]}}}
