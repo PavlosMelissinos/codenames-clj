@@ -12,14 +12,14 @@ assassin.
 
 ## TODO
 
-[ ] Release jar
-[ ] Proper state management
-[ ] Instructions
-[ ] Game over screen
-[ ] Show whose turn it is
-[ ] Play again
-[ ] Web app
-[ ] Android app
-[ ] Custom words (e.g. any language)
-[ ] Word deck presets (e.g. Codenames variants)
-[ ] Bots!!
+* [ ] Release jar
+* [ ] Proper state management
+* [ ] Instructions
+* [ ] Game over screen
+* [ ] Show whose turn it is
+* [ ] Play again
+* [ ] Web app
+* [ ] Android app
+* [ ] Custom words (e.g. any language)
+* [ ] Word deck presets (e.g. Codenames variants)
+* [ ] Bots!!
