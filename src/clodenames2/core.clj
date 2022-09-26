@@ -34,11 +34,7 @@
          shuffle
          (mapv #(assoc %2 :codename %1) codenames))))
 
-(defn init [{::cfg/keys [rows cols civilians assassins]
-             :keys [words] :as cfg}]
-  {:grid (grid cfg)
-   :cfg  cfg})
-
+(defn init [cfg] (assoc cfg :grid (grid cfg)))
 (defn hidden? [card] (-> card :revealed not))
 (defn allowed-move? [board move] (some-> (get board move) hidden?))
 

@@ -1,5 +1,6 @@
 (ns clodenames2.ui
   (:require [cljfx.api :as fx]
+            [clodenames.config :as-alias cfg]
             [clodenames2.core :as core]
             [clojure.math :as math]
             [clojure.string :as str]))
@@ -100,14 +101,16 @@
                                                  [:-fx-text-fill])
                              :text codename}]}]}))
 
-(defn grid-pane [{:keys [grid event role] :as _state}]
+(defn grid-pane [{::cfg/keys [cols]
+                  :keys [grid event role cfg]
+                  :as _state}]
   {:fx/type :grid-pane
    :style {:-fx-padding 30}
    :children (map-indexed (fn [idx it]
                             (merge it
                                    {:fx/type card
-                                    :grid-pane/column (math/floor-div idx 5)
-                                    :grid-pane/row (mod idx 5)
+                                    :grid-pane/column (math/floor-div idx cols)
+                                    :grid-pane/row (mod idx cols)
                                     :grid-pane/hgrow :always
                                     :grid-pane/vgrow :always
                                     :idx idx}
