@@ -42,9 +42,9 @@
    :card-assassin-primary-alt (:white colors)
    :card-civilian-primary-alt (:black colors)})
 
-(defn team [{:keys [team revealed assassin] :as card}]
+(defn team [{:keys [team visible assassin] :as card}]
   (cond
-    (not revealed) :hidden
+    (not visible) :hidden
     assassin :assassin
     (not team) :civilian
     :else team))
@@ -60,38 +60,43 @@
 
 (defmulti card-style team)
 
-(defmethod card-style :assassin [card]
+(defmethod card-style :assassin [{:keys [revealed visible] :as card}]
   {:-fx-background-color (:card-assassin-primary color-palette)
-   :-fx-text-fill (:card-assassin-primary-alt color-palette)})
+   :-fx-text-fill (:card-assassin-primary-alt color-palette)
+   :-fx-opacity (if (and (not revealed) visible) 0.5 1)})
 
 (defmethod card-style :hidden [card] nil)
 
-(defmethod card-style :blue [card]
+(defmethod card-style :blue [{:keys [revealed visible] :as card}]
   {:-fx-background-color (:card-blue-team-primary color-palette)
-   :-fx-text-fill (:card-blue-team-primary-alt color-palette)})
+   :-fx-text-fill (:card-blue-team-primary-alt color-palette)
+   :-fx-opacity (if (and (not revealed) visible) 0.5 1)})
 
-(defmethod card-style :red [card]
+(defmethod card-style :red [{:keys [revealed visible] :as card}]
   {:-fx-background-color (:card-red-team-primary color-palette)
-   :-fx-text-fill (:card-red-team-primary-alt color-palette)})
+   :-fx-text-fill (:card-red-team-primary-alt color-palette)
+   :-fx-opacity (if (and (not revealed) visible) 0.5 1)})
 
-(defmethod card-style :civilian [card]
+(defmethod card-style :civilian [{:keys [revealed visible] :as card}]
   {:-fx-background-color (:card-civilian-primary color-palette)
-   :-fx-text-fill (:card-civilian-primary-alt color-palette)})
+   :-fx-text-fill (:card-civilian-primary-alt color-palette)
+   :-fx-opacity (if (and (not revealed) visible) 0.5 1)})
 
-(defn card [{:keys [codename revealed assassin idx] :as card}]
-  {:fx/type :h-box
-   :style {:-fx-padding 5}
-   :on-mouse-clicked (assoc card :event/type ::card-clicked)
-   :alignment :center
-   :children [{:fx/type  :v-box
-               :h-box/hgrow :always
-               :alignment :center
-               :style    (merge default-card-style (card-style card))
-               :children [{:fx/type :label
-                           :v-box/margin 5
-                           :style (merge {:-fx-background-color :lightgray}
-                                         (card-style card))
-                           :text codename}]}]})
+(defn card [{:keys [codename assassin revealed idx] :as card}]
+  (let [card (update card :visible #(or % (:revealed card)))]
+    {:fx/type :h-box
+     :style {:-fx-padding 5}
+     :on-mouse-clicked (assoc card :event/type ::card-clicked)
+     :alignment :center
+     :children [{:fx/type  :v-box
+                 :h-box/hgrow :always
+                 :alignment :center
+                 :style    (merge default-card-style (card-style card))
+                 :children [{:fx/type :label
+                             :v-box/margin 5
+                             :style (select-keys (card-style card)
+                                                 [:-fx-text-fill])
+                             :text codename}]}]}))
 
 (defn grid-pane [{:keys [grid event role] :as _state}]
   {:fx/type :grid-pane
@@ -105,22 +110,9 @@
                                     :grid-pane/vgrow :always
                                     :idx idx}
                                    (when (= role :spymaster)
-                                     {:revealed true}))) grid)})
+                                     {:visible true}))) grid)})
 
-(defn slider-view [{:keys [min max value label event]}]
-  {:fx/type :h-box
-   :children [{:fx/type :label
-               :text label}
-              {:fx/type :slider
-               :min min
-               :max max
-               :value value
-               :on-value-changed {:event/type event}
-               :major-tick-unit max
-               :show-tick-labels true}]})
-
-(defn game-window-view [{:keys [gravity friction grid role]
-                         :or {friction 0 gravity 0} :as state}]
+(defn game-window-view [{:keys [grid role] :as state}]
   {:fx/type :stage
    :showing true
    :scene {:fx/type :scene
@@ -129,27 +121,26 @@
                               :text (str "View: " (str/capitalize (name role)))}
                              (assoc state :fx/type grid-pane)]}}})
 
-(def renderer
-  (fx/create-renderer
-   :middleware (fx/wrap-map-desc (fn [state]
-                                   {:fx/type fx/ext-many
-                                    :desc [(merge state
-                                                  {:fx/type game-window-view
-                                                   :role :spymaster})
-                                           (merge state
-                                                  {:fx/type game-window-view
-                                                   :role :spy})]}))
-   :opts {:fx.opt/map-event-handler event-handler}))
-
-;;(renderer)
+(renderer)
 
 (comment
 
   (def cfg (core/load-config))
+  (reset! *state {:grid (core/init cfg)})
 
   (def *state (atom {:grid (core/init cfg)}))
 
-  (reset! *state {:grid (core/init cfg)})
+  (def renderer
+    (fx/create-renderer
+     :middleware (fx/wrap-map-desc (fn [state]
+                                     {:fx/type fx/ext-many
+                                      :desc [(merge state
+                                                    {:fx/type game-window-view
+                                                     :role :spymaster})
+                                             (merge state
+                                                    {:fx/type game-window-view
+                                                     :role :spy})]}))
+     :opts {:fx.opt/map-event-handler event-handler}))
 
   (fx/mount-renderer *state renderer)
 
