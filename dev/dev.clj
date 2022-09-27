@@ -6,8 +6,7 @@
 (defonce renderer (atom nil)) ;; maybe this isn't necessary, we'll see
 
 (defn go
-  ([]
-   (go (core/load-config)))
+  ([] (go (core/load-config)))
   ([m]
    (try
      (fx/unmount-renderer ui/*state @renderer)

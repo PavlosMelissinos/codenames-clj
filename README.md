@@ -1,6 +1,6 @@
 # Clodenames 2
 
-Codenames, in Clojure and with mostly side-effect-free code.
+Codenames, in Clojure and mostly free of side-effects.
 
 It's a desktop app, when you run it two board windows appear, one for the
 spymasters and another for the spies.
@@ -19,7 +19,6 @@ assassin.
 * [ ] Release jar
 * [ ] Proper state management
 * [ ] Desktop app
-  * [ ] Start
   * [ ] Settings screen
   * [ ] Game over screen
   * [ ] Show whose turn it is

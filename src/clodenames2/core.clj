@@ -16,7 +16,6 @@
                    io/resource
                    slurp
                    str/split-lines)]
-     (println (type words))
      (-> cfg-file slurp edn/read-string (assoc :words words)))))
 
 (defn grid [{::cfg/keys [rows cols civilians assassins]
