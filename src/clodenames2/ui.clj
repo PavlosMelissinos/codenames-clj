@@ -7,16 +7,13 @@
 
 (defonce *state (atom (core/init (core/load-config))))
 
-(def card-width 100)
-(def card-height 100)
-
 (def default-card-style
   {:-fx-background-color :lightgray
    :-fx-padding          10
    :-fx-border-color     :black
    :-fx-border-radius    4})
 
-(def colors
+(def ^:private colors
   ;; names from https://colornames.org
   {:tastefully-pumpkin "#DC8665" ;; salmon
    :theom "#138086"
@@ -45,7 +42,7 @@
    :card-assassin-primary-alt (:white colors)
    :card-civilian-primary-alt (:black colors)})
 
-(defn team [{:keys [team visible assassin] :as card}]
+(defn team [{:keys [team visible assassin] :as _card}]
   (cond
     (not visible) :hidden
     assassin :assassin
@@ -63,29 +60,29 @@
 
 (defmulti card-style team)
 
-(defmethod card-style :assassin [{:keys [revealed visible] :as card}]
+(defmethod card-style :assassin [{:keys [revealed visible]}]
   {:-fx-background-color (:card-assassin-primary color-palette)
    :-fx-text-fill (:card-assassin-primary-alt color-palette)
    :-fx-opacity (if (and (not revealed) visible) 0.5 1)})
 
-(defmethod card-style :hidden [card] nil)
+(defmethod card-style :hidden [_] nil)
 
-(defmethod card-style :blue [{:keys [revealed visible] :as card}]
+(defmethod card-style :blue [{:keys [revealed visible]}]
   {:-fx-background-color (:card-blue-team-primary color-palette)
    :-fx-text-fill (:card-blue-team-primary-alt color-palette)
    :-fx-opacity (if (and (not revealed) visible) 0.5 1)})
 
-(defmethod card-style :red [{:keys [revealed visible] :as card}]
+(defmethod card-style :red [{:keys [revealed visible]}]
   {:-fx-background-color (:card-red-team-primary color-palette)
    :-fx-text-fill (:card-red-team-primary-alt color-palette)
    :-fx-opacity (if (and (not revealed) visible) 0.5 1)})
 
-(defmethod card-style :civilian [{:keys [revealed visible] :as card}]
+(defmethod card-style :civilian [{:keys [revealed visible]}]
   {:-fx-background-color (:card-civilian-primary color-palette)
    :-fx-text-fill (:card-civilian-primary-alt color-palette)
    :-fx-opacity (if (and (not revealed) visible) 0.5 1)})
 
-(defn card [{:keys [codename assassin revealed idx] :as card}]
+(defn card [{:keys [codename] :as card}]
   (let [card (update card :visible #(or % (:revealed card)))]
     {:fx/type :h-box
      :style {:-fx-padding 5}
@@ -102,7 +99,7 @@
                              :text codename}]}]}))
 
 (defn grid-pane [{::cfg/keys [cols]
-                  :keys [grid event role cfg]
+                  :keys [grid role]
                   :as _state}]
   {:fx/type :grid-pane
    :style {:-fx-padding 30}
