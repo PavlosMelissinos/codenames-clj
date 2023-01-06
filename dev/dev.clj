@@ -1,7 +1,7 @@
 (ns dev
   (:require [cljfx.api :as fx]
-            [clodenames2.ui :as ui]
-            [clodenames2.core :as core]))
+            [codenames-clj.ui :as ui]
+            [codenames-clj.core :as core]))
 
 (defonce renderer (atom nil)) ;; maybe this isn't necessary, we'll see
 
