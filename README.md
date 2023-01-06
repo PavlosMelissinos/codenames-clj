@@ -1,4 +1,4 @@
-# Clodenames 2
+# Codenames-clj
 
 Codenames, in Clojure and mostly free of side-effects.
 

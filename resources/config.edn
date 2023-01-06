@@ -1,4 +1,4 @@
-{:clodenames.config/rows      5
- :clodenames.config/cols      5
- :clodenames.config/civilians 7
- :clodenames.config/assassins 1}
+{:codenames-clj.config/rows      5
+ :codenames-clj.config/cols      5
+ :codenames-clj.config/civilians 7
+ :codenames-clj.config/assassins 1}

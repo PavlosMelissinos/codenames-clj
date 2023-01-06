@@ -1,5 +1,5 @@
-(ns clodenames2.core
-  (:require [clodenames.config :as-alias cfg]
+(ns codenames-clj.core
+  (:require [codenames-clj.config :as-alias c]
             [clojure.math :as math]
             [clojure.edn :as edn]
             [clojure.java.io :as io]
@@ -18,7 +18,7 @@
                    str/split-lines)]
      (-> cfg-file slurp edn/read-string (assoc :words words)))))
 
-(defn grid [{::cfg/keys [rows cols civilians assassins]
+(defn grid [{:codenames-clj.config/keys [rows cols civilians assassins]
              :keys [words] :as _cfg}]
   (let [board-size (* rows cols)
         non-spies  (+ civilians assassins)
@@ -31,7 +31,7 @@
           (repeat assassins {:assassin true})]
          (apply concat)
          shuffle
-         (mapv #(assoc %2 :codename %1) codenames))))
+         (mapv #(assoc %2 :card/codename %1 :codename %1) codenames))))
 
 (defn init [cfg] (assoc cfg :grid (grid cfg)))
 (defn hidden? [card] (-> card :revealed not))
@@ -52,4 +52,10 @@
                (assoc :words words)))
 
   (def state (init cfg))
+
+  (-> state
+      :grid
+      first)
+
+  (apply merge (:grid state))
   ,)

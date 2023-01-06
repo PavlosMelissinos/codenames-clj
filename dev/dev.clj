@@ -1,7 +1,7 @@
 (ns dev
   (:require [cljfx.api :as fx]
-            [clodenames2.ui :as ui]
-            [clodenames2.core :as core]))
+            [codenames-clj.ui :as ui]
+            [codenames-clj.core :as core]))
 
 (defonce renderer (atom nil)) ;; maybe this isn't necessary, we'll see
 
@@ -10,7 +10,7 @@
   ([m]
    (try
      (fx/unmount-renderer ui/*state @renderer)
-     (catch Throwable ex
+     (catch Throwable _ex
        nil))
    (reset! renderer ui/renderer)
    (reset! ui/*state (core/init m))
@@ -18,12 +18,12 @@
    @ui/*state))
 
 (defn halt! []
-  (if @renderer
+  (when @renderer
     (fx/unmount-renderer ui/*state @renderer))
   (reset! ui/*state nil)
   (reset! renderer nil))
 
-(defn reset [{:keys [cfg] :as m}]
+(defn reset [{:keys [cfg]}]
   (println "Halting old state")
   (halt!)
   (println "Starting new state")
