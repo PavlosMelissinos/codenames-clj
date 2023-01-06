@@ -2,45 +2,24 @@
   (:require [cljfx.api :as fx]
             [codenames-clj.config :as-alias cfg]
             [codenames-clj.core :as core]
+            [codenames-clj.ui.palette :as palette]
+            [clojure.core.cache :as cache]
             [clojure.math :as math]
-            [clojure.string :as str]))
+            [clojure.string :as str])
+  (:import [javafx.scene.control DialogEvent Dialog ButtonBar$ButtonData ButtonType]))
 
-(defonce *state (atom (core/init (core/load-config))))
+(set! *warn-on-reflection* true)
+
+(defonce *state
+  (atom (merge (core/init (core/load-config))
+               {:showing true
+                :internal {}})))
 
 (def default-card-style
   {:-fx-background-color :lightgray
    :-fx-padding          10
    :-fx-border-color     :black
    :-fx-border-radius    4})
-
-(def ^:private colors
-  ;; names from https://colornames.org
-  {:tastefully-pumpkin "#DC8665" ;; salmon
-   :theom "#138086"
-   :aquarium-rocks "#16949b"
-   :barney-shet "#554869"
-   :tired-peach-pink "#CD7672"
-   :sick-camel "#EEB462"
-   :cherry-blossom-yoghurt "#F5CDC6"
-   :burnt-bubblegum "#EF9796"
-   :peach-eyeshadow "#FFC98B"
-   :peached-out "#FFB284"
-   :introverted-broccoli "#C6C09b"
-   :coral "#FF7F50"
-   :sail-far-blue "#4fd0ff"
-   :white "#FFFFFF"
-   :black "#000000"})
-
-(def color-palette
-  ;; https://digitalsynopsis.com/wp-content/uploads/2019/04/beautiful-color-gradient-palettes-31-1024x795.jpg
-  {:card-red-team-primary (:tired-peach-pink colors)
-   :card-blue-team-primary (:theom colors)
-   :card-assassin-primary (:barney-shet colors)
-   :card-civilian-primary (:sick-camel colors)
-   :card-red-team-primary-alt (:black colors)
-   :card-blue-team-primary-alt (:white colors)
-   :card-assassin-primary-alt (:white colors)
-   :card-civilian-primary-alt (:black colors)})
 
 (defn team [{:keys [team visible assassin] :as _card}]
   (cond
@@ -56,30 +35,43 @@
 (defmethod event-handler ::card-clicked [{:keys [idx] :as e}]
   (swap! *state update :grid core/reveal idx))
 
+(defmethod event-handler ::new-game-requested [{:keys [idx] :as e}]
+  (swap! *state assoc ::game-boards-visible true))
+
+(defmethod event-handler ::forfeit-clicked [{:keys [idx] :as e}]
+  (prn e)
+  (swap! *state assoc ::main-menu-visible true))
+
+(defmethod event-handler ::quit-game-clicked
+  [{:fx/keys [context] :as e}]
+  (prn e)
+  ;;(swap! *state assoc ::main-menu-visible true)
+  {:context (fx/swap-context context assoc :showing false)})
+
 ;; Styles
 
 (defmulti card-style team)
 
 (defmethod card-style :assassin [{:keys [revealed visible]}]
-  {:-fx-background-color (:card-assassin-primary color-palette)
-   :-fx-text-fill (:card-assassin-primary-alt color-palette)
+  {:-fx-background-color (:card-assassin-primary palette/color-palette)
+   :-fx-text-fill (:card-assassin-primary-alt palette/color-palette)
    :-fx-opacity (if (and (not revealed) visible) 0.5 1)})
 
 (defmethod card-style :hidden [_] nil)
 
 (defmethod card-style :blue [{:keys [revealed visible]}]
-  {:-fx-background-color (:card-blue-team-primary color-palette)
-   :-fx-text-fill (:card-blue-team-primary-alt color-palette)
+  {:-fx-background-color (:card-blue-team-primary palette/color-palette)
+   :-fx-text-fill (:card-blue-team-primary-alt palette/color-palette)
    :-fx-opacity (if (and (not revealed) visible) 0.5 1)})
 
 (defmethod card-style :red [{:keys [revealed visible]}]
-  {:-fx-background-color (:card-red-team-primary color-palette)
-   :-fx-text-fill (:card-red-team-primary-alt color-palette)
+  {:-fx-background-color (:card-red-team-primary palette/color-palette)
+   :-fx-text-fill (:card-red-team-primary-alt palette/color-palette)
    :-fx-opacity (if (and (not revealed) visible) 0.5 1)})
 
 (defmethod card-style :civilian [{:keys [revealed visible]}]
-  {:-fx-background-color (:card-civilian-primary color-palette)
-   :-fx-text-fill (:card-civilian-primary-alt color-palette)
+  {:-fx-background-color (:card-civilian-primary palette/color-palette)
+   :-fx-text-fill (:card-civilian-primary-alt palette/color-palette)
    :-fx-opacity (if (and (not revealed) visible) 0.5 1)})
 
 (defn card [{:keys [codename] :as card}]
@@ -98,9 +90,9 @@
                                                  [:-fx-text-fill])
                              :text codename}]}]}))
 
-(defn grid-pane [{::cfg/keys [cols]
-                  :keys [grid role]
-                  :as _state}]
+(defn game-board-view [{::cfg/keys [cols]
+                        :keys [grid role]
+                        :as _state}]
   {:fx/type :grid-pane
    :style {:-fx-padding 30}
    :children (map-indexed (fn [idx it]
@@ -114,26 +106,53 @@
                                    (when (= role :spymaster)
                                      {:visible true}))) grid)})
 
-(defn game-window-view [{:keys [grid role] :as state}]
+
+(defn title-bar [role]
+  {:fx/type :label
+   :text (str "View: " (str/capitalize (name role)))})
+
+(defn main-menu-view [{:keys [role fx/context] :as state}]
   {:fx/type :stage
    :showing true
+   ;;:showing (fx/sub-val context :showing)
    :scene {:fx/type :scene
            :root {:fx/type :v-box
-                  :children [{:fx/type :label
-                              :text (str "View: " (str/capitalize (name role)))}
-                             (assoc state :fx/type grid-pane)]}}})
+                  :children [{:fx/type :button
+                              :text "Start game"
+                              :on-action (assoc state
+                                                :event/type ::new-game-requested)}
+                             {:fx/type :button
+                              :text "Quit"
+                              :on-action (assoc state
+                                                :event/type ::quit-game-requested)}
+                             #_(assoc state :fx/type grid-pane)]}}})
+
+(defn game-window-view [{:keys [role fx/context] :as state}]
+  {:fx/type :stage
+   :showing true
+   ;;:showing (fx/sub-val context :showing)
+   :scene {:fx/type :scene
+           :root {:fx/type :v-box
+                  :children [(title-bar role)
+                             (assoc state :fx/type game-board-view)]}}})
+
+(defn desc-fn [state]
+  {:fx/type fx/ext-many
+   :desc [#_(merge state
+                 {:fx/type main-menu-view})
+          (merge state
+                 {:fx/type game-window-view
+                  :role :spymaster})
+          (merge state
+                 {:fx/type game-window-view
+                  :role :spy})]})
 
 (defonce renderer ;; todo: does this really belong here?
   (fx/create-renderer
-   :middleware (fx/wrap-map-desc (fn [state]
-                                   {:fx/type fx/ext-many
-                                    :desc [(merge state
-                                                  {:fx/type game-window-view
-                                                   :role :spymaster})
-                                           (merge state
-                                                  {:fx/type game-window-view
-                                                   :role :spy})]}))
+   :middleware (fx/wrap-map-desc desc-fn)
    :opts {:fx.opt/map-event-handler event-handler}))
+
+(renderer)
 
 (comment
 
@@ -142,9 +161,33 @@
 
   (def *state (atom (core/init cfg)))
 
-  (fx/mount-renderer *state renderer)
+  @*state
 
+  (def renderer-dev
+    (fx/create-renderer
+     :middleware (fx/wrap-map-desc desc-fn)
+     :opts {:fx.opt/map-event-handler event-handler}))
+
+  (fx/mount-renderer *state renderer-dev)
+  (fx/unmount-renderer *state renderer-dev)
+
+  (fx/mount-renderer *state renderer)
   (fx/unmount-renderer *state renderer)
 
   (renderer)
+  (renderer-dev)
+
+  (def *context
+    (atom (fx/create-context
+           {:showing true
+            :internal {}}
+           cache/lru-cache-factory)))
+
+  (def app2
+    (fx/create-app *context
+                   :event-handler event-handler
+                   :desc-fn desc-fn))
+
+  (fx/unbind-context @*context)
+
   ,)
