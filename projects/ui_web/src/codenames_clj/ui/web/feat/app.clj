@@ -2,139 +2,196 @@
   (:require [com.biffweb :as biff :refer [q]]
             [codenames-clj.ui.web.middleware :as mid]
             [codenames-clj.ui.web.ui :as ui]
+            [codenames-clj.core :as logic]
+            [codenames-clj.config :as-alias c]
+            [codenames-clj.ui :as ui-utils]
+            [codenames-clj.ui.palette :as palette]
+            [clojure.java.io :as io]
+            [clojure.string :as str]
+            [clojure.tools.logging :as log]
             [rum.core :as rum]
             [xtdb.api :as xt]
             [ring.adapter.jetty9 :as jetty]
-            [cheshire.core :as cheshire]))
+            [ring.middleware.anti-forgery :as anti-forgery]))
 
-(defn set-foo [{:keys [session params] :as req}]
-  (biff/submit-tx req
-    [{:db/op :update
-      :db/doc-type :user
-      :xt/id (:uid session)
-      :user/foo (:foo params)}])
-  {:status 303
-   :headers {"location" "/app"}})
 
-(defn bar-form [{:keys [value]}]
-  (biff/form
-   {:hx-post "/app/set-bar"
-    :hx-swap "outerHTML"}
-   [:label.block {:for "bar"} "Bar: "
-    [:span.font-mono (pr-str value)]]
-   [:.h-1]
-   [:.flex
-    [:input.w-full#bar {:type "text" :name "bar" :value value}]
-    [:.w-3]
-    [:button.btn {:type "submit"} "Update"]]
-   [:.h-1]
-   [:.text-sm.text-gray-600
-    "This demonstrates updating a value with HTMX."]))
+;; header
 
-(defn set-bar [{:keys [session params] :as req}]
-  (biff/submit-tx req
-    [{:db/op :update
-      :db/doc-type :user
-      :xt/id (:uid session)
-      :user/bar (:bar params)}])
-  (biff/render (bar-form {:value (:bar params)})))
+(defn header [db session]
+  (let [{:user/keys [email]} (xt/entity db (:uid session))]
+    [:div "Signed in as " email ". "
+     (biff/form
+      {:action "/auth/signout"
+       :class "inline"}
+      [:button.text-blue-500.hover:text-blue-800 {:type "submit"} "Sign out"])
+     "."]))
 
-(defn message [{:msg/keys [text sent-at]}]
-  [:.mt-3 {:_ "init send newMessage to #message-header"}
-   [:.text-gray-600 (biff/format-date sent-at "dd MMM yyyy HH:mm:ss")]
-   [:div text]])
+;; match
 
-(defn notify-clients [{:keys [codenames-clj.ui.web/chat-clients]} tx]
-  (doseq [[op & args] (::xt/tx-ops tx)
-          :when (= op ::xt/put)
-          :let [[doc] args]
-          :when (contains? doc :msg/text)
-          :let [html (rum/render-static-markup
-                      [:div#messages {:hx-swap-oob "afterbegin"}
-                       (message doc)])]
-          ws @chat-clients]
-    (jetty/send! ws html)))
+(defn words [lang]
+  (-> (format "words.%s.txt" lang)
+      io/resource
+      slurp
+      str/split-lines))
 
-(defn send-message [{:keys [session] :as req} {:keys [text]}]
-  (let [{:keys [text]} (cheshire/parse-string text true)]
+(def default-cfg
+  {::c/rows      5
+   ::c/cols      5
+   ::c/civilians 7
+   ::c/assassins 1})
+
+(defn match-get [db match-id]
+  (biff/lookup db :xt/id (parse-uuid match-id)))
+
+(defn match-create [{:keys [match/cfg session] :as sys}]
+  (let [match-id (random-uuid)]
+    (biff/submit-tx
+     sys
+     [{:db/doc-type   :match
+       :xt/id         match-id
+       :match/grid    (logic/grid cfg)
+       :match/creator (:uid session)}])
+    match-id))
+
+(defn card-style [{:keys [revealed visible] :as _card}]
+  {:assassin ""
+   :hidden   nil
+   :blue     {:-fx-background-color (:card-blue-team-primary palette/color-palette)
+              :-fx-text-fill (:card-blue-team-primary-alt palette/color-palette)
+              :-fx-opacity (if (and (not revealed) visible) 0.5 1)}
+   :red      {:-fx-background-color (:card-red-team-primary palette/color-palette)
+              :-fx-text-fill (:card-red-team-primary-alt palette/color-palette)
+              :-fx-opacity (if (and (not revealed) visible) 0.5 1)}
+   :civilian {:-fx-background-color (:card-civilian-primary palette/color-palette)
+              :-fx-text-fill (:card-civilian-primary-alt palette/color-palette)
+              :-fx-opacity (if (and (not revealed) visible) 0.5 1)}})
+
+(def role-classes
+  {:hidden {:normal "bg-teal-600 hover:bg-teal-800"
+            :revealed "bg-teal-600 text-black"}
+   :assassin {:normal "bg-slate-600 hover:bg-slate-800"
+              :revealed "bg-slate-600"}
+   :civilian {:normal "bg-amber-600 hover:bg-amber-800"
+              :revealed "bg-amber-600 text-black"}
+   :blue {:normal "bg-blue-600 hover:bg-blue-800"
+          :revealed "bg-blue-600 text-black"}
+   :red {:normal "bg-red-600 hover:bg-red-800"
+         :revealed "bg-red-600 text-black"}})
+
+(def status-classes
+  {:normal   "hover:shadow-lg active:shadow-lg"
+   :revealed "opacity-50"})
+
+(defn render-card [{:match/keys [grid id] :as _match} idx]
+  (let [{:keys [team revealed visible assassin card/codename]} (get grid idx)
+        role           (cond
+                         (not (or visible revealed)) :hidden
+                         assassin :assassin
+                         (not team) :civilian
+                         :else team)
+        status         (if revealed :revealed :normal)
+        classes (format "py-2 px-4 rounded w-full h-full text-white %s %s"
+                        (get-in role-classes [role status])
+                        (get status-classes status))]
+    [:button {:hx-get (format "/app/match/%s/card/%s" id idx)
+              :hx-swap "outerHTML"
+              :type "submit"
+              :title (:codename (get grid idx))
+              :disabled (boolean revealed)
+              :class classes} codename]))
+
+(defn grid [db match-id]
+  (-> (biff/lookup db :xt/id match-id)
+      :match/grid))
+
+(defn card-info [db {:keys [match-id card-idx]}]
+  (-> (biff/lookup db :xt/id match-id)
+      :match/grid
+      (nth card-idx)))
+
+(defn card-reveal [{:keys [session path-params biff/db] :as req}]
+  (let [match-id (parse-uuid (:match-id path-params))
+        card-idx (parse-long (:idx path-params))
+        g        (-> (grid db match-id) (logic/reveal card-idx))]
     (biff/submit-tx req
-      [{:db/doc-type :msg
-        :msg/user (:uid session)
-        :msg/text text
-        :msg/sent-at :db/now}])))
+                    [{:db/doc-type   :match
+                      :db/op         :update
+                      :xt/id         match-id
+                      :match/grid    g
+                      :match/creator (:uid session)}])
+    (render-card {:match/grid g :match/id match-id} card-idx)))
 
-(defn chat [{:keys [biff/db]}]
-  (let [messages (q db
-                    '{:find (pull msg [*])
-                      :in [t0]
-                      :where [[msg :msg/sent-at t]
-                              [(<= t0 t)]]}
-                    (biff/add-seconds (java.util.Date.) (* -60 10)))]
-    [:div {:hx-ws "connect:/app/chat"}
-     [:form.mb0 {:hx-ws "send"
-                 :_ "on submit set value of #message to ''"}
-      [:label.block {:for "message"} "Write a message"]
-      [:.h-1]
-      [:textarea.w-full#message {:name "text"}]
-      [:.h-1]
-      [:.text-sm.text-gray-600
-       "Sign in with an incognito window to have a conversation with yourself."]
-      [:.h-2]
-      [:div [:button.btn {:type "submit"} "Send message"]]]
-     [:.h-6]
-     [:div#message-header
-      {:_ "on newMessage put 'Messages sent in the past 10 minutes:' into me"}
-      (if (empty? messages)
-        "No messages yet."
-        "Messages sent in the past 10 minutes:")]
-     [:div#messages
-      (map message (sort-by :msg/sent-at #(compare %2 %1) messages))]]))
+(defn render-grid [match-id grid]
+  (for [i (range (count grid))]
+    (render-card {:match/id match-id :match/grid grid} i)))
 
-(defn app [{:keys [session biff/db] :as req}]
-  (let [{:user/keys [email foo bar]} (xt/entity db (:uid session))]
+(defn words [lang]
+  (-> (format "words.%s.txt" lang)
+      io/resource
+      slurp
+      str/split-lines))
+
+(defn start-match [{:keys [params] :as req}]
+  (log/info "Starting match")
+  (let [lang     (or (:lang params) "el")
+        w        (take 25 (shuffle (words lang)))
+        req      (-> (assoc req :match/cfg default-cfg)
+                     (assoc-in [:match/cfg :words] w))
+        match-id (match-create req)]
+    {:status 303
+     :headers {"location" (str "/app/match/" match-id)}}))
+
+(defn match [{:keys [path-params biff/db session] :as _req}]
+  (let [{:keys [match-id]} path-params
+        grid (:match/grid (biff/lookup db :xt/id (parse-uuid match-id)))]
     (ui/page
      {}
-     nil
-     [:div "Signed in as " email ". "
-      (biff/form
-       {:action "/auth/signout"
-        :class "inline"}
-       [:button.text-blue-500.hover:text-blue-800 {:type "submit"}
-        "Sign out"])
-      "."]
-     [:.h-6]
-     (biff/form
-      {:action "/app/set-foo"}
-      [:label.block {:for "foo"} "Foo: "
-       [:span.font-mono (pr-str foo)]]
-      [:.h-1]
-      [:.flex
-       [:input.w-full#foo {:type "text" :name "foo" :value foo}]
-       [:.w-3]
-       [:button.btn {:type "submit"} "Update"]]
-      [:.h-1]
-      [:.text-sm.text-gray-600
-       "This demonstrates updating a value with a plain old form."])
-     [:.h-6]
-     (bar-form {:value bar})
-     [:.h-6]
-     (chat req))))
+     (header db session)
+     ;;[:.h-6]
+     [:div.text-2xl.text-center "Codenames"]
+     [:div {:id "codenames-board-area" :class "grid border-black grid-cols-5 gap-2"}
+      (render-grid match-id grid)])))
 
-(defn ws-handler [{:keys [codenames_clj.ui.web/chat-clients] :as req}]
-  {:status 101
-   :headers {"upgrade" "websocket"
-             "connection" "upgrade"}
-   :ws {:on-connect (fn [ws]
-                      (swap! chat-clients conj ws))
-        :on-text (fn [ws text-message]
-                   (send-message req {:ws ws :text text-message}))
-        :on-close (fn [ws status-code reason]
-                    (swap! chat-clients disj ws))}})
+(defn app [{:keys [session biff/db] :as _req}]
+  (ui/page
+   {}
+   (header db session)
+   [:.h-6]
+   [:div.text-2xl.text-center "Codenames"]
+
+   [:div {:class "flex gap-2"}
+    [:label {:for "lang"} "Select match language"]
+    [:select {:name "lang" :id "lang"}
+     [:option {:value "en"} "English"]
+     [:option {:value "el"} "Ελληνικά"]]]
+   [:button {:class "inline-block px-6 py-2 bg-blue-600 text-white font-medium text-xs leading-tight uppercase rounded shadow-md hover:bg-blue-700 hover:shadow-lg focus:bg-blue-700 focus:shadow-lg focus:outline-none focus:ring-0 active:bg-blue-800 active:shadow-lg transition duration-150 ease-in-out flex"
+             :type "target"
+             :hx-get "/app/match"
+             :hx-trigger "click"
+             :hx-target "#codenames-board-area"
+             :hx-include "[id='lang']"}
+    "New match"]
+   #_[:form
+      {:method "get"}
+      [:div {:class "flex gap-2"}
+       [:select {:name "lang"}
+        [:option {:value "en" :label "English"}]
+        [:option {:value "el" :label "Ελληνικά"}]]
+       [:button {:class "inline-block px-6 py-2 bg-blue-600 text-white font-medium text-xs leading-tight uppercase rounded shadow-md hover:bg-blue-700 hover:shadow-lg focus:bg-blue-700 focus:shadow-lg focus:outline-none focus:ring-0 active:bg-blue-800 active:shadow-lg transition duration-150 ease-in-out flex"
+                 :type "target"
+                 ;;:type "button"
+                 :hx-get "/app/match"
+                 :hx-trigger "click"
+                 :hx-target "#codenames-board-area"}
+        "New match"]]]
+   [:div {:id "codenames-board-area"}]))
 
 (def features
-  {:routes ["/app" {:middleware [mid/wrap-signed-in]}
+  {:routes ["/app" {:middleware [anti-forgery/wrap-anti-forgery
+                                 biff/wrap-anti-forgery-websockets
+                                 mid/wrap-signed-in]}
             ["" {:get app}]
-            ["/set-foo" {:post set-foo}]
-            ["/set-bar" {:post set-bar}]
-            ["/chat" {:get ws-handler}]]
-   :on-tx notify-clients})
+            ["/match/:match-id" {:get match}]
+            ["/match/:match-id/card/:idx" {:get card-reveal}]
+            ["/match" {:post start-match
+                       :get start-match}]]})

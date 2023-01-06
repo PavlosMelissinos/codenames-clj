@@ -1,7 +1,8 @@
 (ns codenames-clj.ui.web.repl
   (:require [com.biffweb :as biff :refer [q]]
             [clojure.edn :as edn]
-            [clojure.java.io :as io]))
+            [clojure.java.io :as io]
+            [codenames-clj.core :as core]))
 
 (defn get-sys []
   (biff/assoc-db @biff/system))

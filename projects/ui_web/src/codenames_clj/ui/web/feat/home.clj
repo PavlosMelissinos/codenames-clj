@@ -55,8 +55,20 @@
   (ui/page
    {:base/head (when (util/email-signin-enabled? sys)
                  recaptcha-scripts)}
-   (signin-form sys)))
+   [:.bg-orange-50.flex.flex-col.flex-grow.items-center.p-3
+    [:.h-12.grow]
+    [:img.w-40 {:src "/img/codenames-transparent.png"}]
+    [:.h-6]
+    [:.text-2xl.sm:text-3xl.font-semibold.sm:text-center.w-full
+     "A platform to play Codenames with your friends."]
+    [:.h-2]
+    [:.sm:text-lg.sm:text-center.w-full
+     "Soon with bots!"]
+    [:.h-6]
+    (signin-form sys)
+    [:.h-12 {:class "grow-[2]"}]]))
 
 (def features
   {:routes ["" {:middleware [mid/wrap-redirect-signed-in]}
-            ["/" {:get home}]]})
+            ["/" {:get home}]
+            #_["/board" {:get app/board}]]})

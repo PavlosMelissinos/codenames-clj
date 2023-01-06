@@ -1,4 +1,3 @@
-
 (ns codenames-clj.ui.web.ui
   (:require [clojure.java.io :as io]
             [com.biffweb :as biff]))
@@ -12,11 +11,11 @@
   (apply
    biff/base-html
    (-> opts
-       (merge #:base{:title "My Application"
+       (merge #:base{:title "Codenames"
                      :lang "en-US"
-                     :icon "/img/glider.png"
-                     :description "My Application Description"
-                     :image "https://clojure.org/images/clojure-logo-120b.png"})
+                     :description "Play Codenames with your friends"
+                     :image "/img/logo.png"
+                     })
        (update :base/head (fn [head]
                             (concat [[:link {:rel "stylesheet" :href (css-path)}]
                                      [:script {:src "https://unpkg.com/htmx.org@1.6.1"}]

@@ -3,26 +3,39 @@
             [malli.registry :as malr]))
 
 (def schema
-  {:user/id :uuid
-   :user/email :string
-   :user/foo :string
-   :user/bar :string
-   :user/joined-at inst?
-   :user [:map {:closed true}
-          [:xt/id :user/id]
-          :user/email
-          :user/joined-at
-          [:user/foo {:optional true}]
-          [:user/bar {:optional true}]]
-
-   :msg/id :uuid
-   :msg/user :user/id
-   :msg/text :string
-   :msg/sent-at inst?
-   :msg [:map {:closed true}
-         [:xt/id :msg/id]
-         :msg/user
-         :msg/text
-         :msg/sent-at]})
+  {:user/id    :uuid
+   :user       [:map {:closed true}
+                [:xt/id :user/id]
+                [:user/email :string]
+                [:user/joined-at inst?]]
+   :card       [:map
+                [:card/codename :string]
+                [:team {:optional true} [:enum :blue :red]]
+                [:assassin {:optional true} :boolean]
+                [:revealed {:optional true} :boolean]]
+   :match/id   :uuid
+   :match      [:map
+                [:xt/id :match/id]
+                [:match/grid [:vector :card]]
+                [:match/creator :user/id]]
+   :player/id  :uuid
+   :player     [:map
+                [:xt/id :player/id]
+                [:player/user :user/id]
+                [:player/match :match/id]
+                [:player/role [:enum :spymaster :spy :observer]]
+                [:player/team {:optional true} [:enum :blue :red]]]
+   :mem/id     :uuid
+   :membership [:map {:closed true}
+                [:xt/id :mem/id]
+                [:mem/player :player/id]
+                [:mem/role [:enum :spymaster :spy :observer]]
+                [:mem/team {:optional true} [:enum :blue :red]]]})
 
 (def malli-opts {:registry (malr/composite-registry malc/default-registry schema)})
+
+
+(comment
+  (malc/validate [:vector int?] [1 2 3])
+  (malc/validate [:enum :spymaster :spy :observer] :spymaster)
+  ,)
