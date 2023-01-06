@@ -1,7 +1,7 @@
-(ns clodenames2.ui
+(ns codenames-clj.ui
   (:require [cljfx.api :as fx]
-            [clodenames.config :as-alias cfg]
-            [clodenames2.core :as core]
+            [codenames-clj.config :as-alias cfg]
+            [codenames-clj.core :as core]
             [clojure.math :as math]
             [clojure.string :as str]))
 
