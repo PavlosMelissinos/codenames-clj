@@ -6,6 +6,7 @@
             [codenames-clj.config :as-alias c]
             [codenames-clj.ui :as ui-utils]
             [codenames-clj.ui.palette :as palette]
+            [clojure.math :as math]
             [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.tools.logging :as log]
@@ -35,10 +36,22 @@
       str/split-lines))
 
 (def default-cfg
-  {::c/rows      5
-   ::c/cols      5
-   ::c/civilians 7
-   ::c/assassins 1})
+  {9  {::c/rows      3
+       ::c/cols      3
+       ::c/civilians 3
+       ::c/assassins 1}
+   16 {::c/rows      4
+       ::c/cols      4
+       ::c/civilians 4
+       ::c/assassins 1}
+   25 {::c/rows      5
+       ::c/cols      5
+       ::c/civilians 7
+       ::c/assassins 1}
+   36 {::c/rows      6
+       ::c/cols      6
+       ::c/civilians 12
+       ::c/assassins 1}})
 
 (defn match-get [db match-id]
   (biff/lookup db :xt/id (parse-uuid match-id)))
@@ -181,9 +194,9 @@
 (defn start-match [{:keys [params] :as req}]
   (log/info "Starting match")
   (let [lang (get params :lang "en")
-        grid-size (parse-long (get params :grid-size "5"))
-        w        (take (* grid-size grid-size) (shuffle (words lang)))
-        req      (-> (assoc req :match/cfg default-cfg)
+        grid-size (long (math/pow (parse-long (get params :grid-size "5")) 2))
+        w        (take grid-size (shuffle (words lang)))
+        req      (-> (assoc req :match/cfg (get default-cfg grid-size))
                      (assoc-in [:match/cfg :words] w))
         match-id (match-create req)]
     {:status  303
