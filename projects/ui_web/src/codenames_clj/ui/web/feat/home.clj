@@ -70,5 +70,4 @@
 
 (def features
   {:routes ["" {:middleware [mid/wrap-redirect-signed-in]}
-            ["/" {:get home}]
-            #_["/board" {:get app/board}]]})
+            ["/" {:get home}]]})

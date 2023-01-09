@@ -143,7 +143,7 @@
        ~@(for [v values] [:div (str (* v v))])]]))
 
 (defn component-match-setup []
-  [:div {:class "relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg" #_"relative transform mx-auto max-w-4xl py-6 sm:px-6 rounded-lg"}
+  [:div {:class "relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:max-w-lg"}
    [:div {:class "mt-5 md:col-span-2 md:mt-0 shadow-lg rounded-lg p-6"}
     (biff/form
      {:action "/app/match"
@@ -157,14 +157,16 @@
          [:option {:value "en"} "English words"]
          [:option {:value "el"} "Ελληνικές λέξεις"]]]]]
 
-     [:div #_{:class "bg-gray-50 px-4 py-3 text-right sm:px-6"}
-      {:class "flex space-x-2 justify-right"}
+     [:div {:class "flex flex-row-reverse space-x-4 space-x-reverse"}
+      [:button {:type "submit",
+                :class "justify-center rounded-md bg-blue-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-blue-700 flex items-center justify-center"}
+       [:svg {:xmlns "http://www.w3.org/2000/svg", :viewbox "0 0 24 24", :fill "currentColor", :class "w-6 h-6"}
+        [:path {:fill-rule "evenodd", :d "M4.5 5.653c0-1.426 1.529-2.33 2.779-1.643l11.54 6.348c1.295.712 1.295 2.573 0 3.285L7.28 19.991c-1.25.687-2.779-.217-2.779-1.643V5.653z", :clip-rule "evenodd"}]]
+
+       [:span {:class "align-center inline"} "Play!"]]
       [:div {:_ "on click hide #match-config-modal"
-             :class "btn inline-flex justify-center rounded-md border border-transparent bg-indigo-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"}
-       [:i {:class "fa-solid fa-circle-chevron-left"}]
-       #_"Back"]
-      [:button {:type "submit", :class "inline-flex justify-center rounded-md border border-transparent bg-indigo-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"}
-       "Play!"]])]])
+             :class "items-center text-blue-400 hover:underline hover:text-blue-500 my-2 h-full text-sm font-medium"}
+       "Go back"]])]])
 
 (defn component-modal [content-fn id]
   [:div {:id id
