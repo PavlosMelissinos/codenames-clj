@@ -1,11 +1,12 @@
 (ns codenames-clj.ui.web.feat.app
-  (:require [com.biffweb :as biff :refer [q]]
+  (:require [com.biffweb :as biff]
             [codenames-clj.ui.web.middleware :as mid]
             [codenames-clj.ui.web.ui :as ui]
             [codenames-clj.core :as logic]
             [codenames-clj.config :as-alias c]
             [codenames-clj.ui :as ui-utils]
             [codenames-clj.ui.palette :as palette]
+            [cheshire.core :as json]
             [clojure.math :as math]
             [clojure.java.io :as io]
             [clojure.string :as str]
@@ -53,6 +54,8 @@
        ::c/civilians 12
        ::c/assassins 1}})
 
+;; match
+
 (defn match-get [db match-id]
   (biff/lookup db :xt/id (parse-uuid match-id)))
 
@@ -60,11 +63,27 @@
   (let [match-id (random-uuid)]
     (biff/submit-tx
      sys
-     [{:db/doc-type   :match
-       :xt/id         match-id
-       :match/grid    (logic/grid cfg)
-       :match/creator (:uid session)}])
-    match-id))
+     [{:db/doc-type      :match
+       :xt/id            match-id
+       :match/grid       (logic/grid cfg)
+       :match/creator    (:uid session)
+       :match/created-at :db/now}])
+    (str match-id)))
+
+(defn match-delete [{:keys [path-params session] :as sys}]
+  (let [match-id (-> path-params :match-id)]
+    (biff/submit-tx
+     sys
+     [{:db/op :delete
+       :xt/id (parse-uuid match-id)}])
+    {:status 200
+     :body match-id}))
+
+(defn matches-list [db user-id]
+  (xt/q db
+        '{:find [match-id]
+          :where [[match :match/creator user-id]
+                  [match :xt/id match-id]]}))
 
 (defn card-style [{:keys [revealed visible] :as _card}]
   {:assassin ""
@@ -170,16 +189,18 @@
          [:option {:value "en"} "English words"]
          [:option {:value "el"} "Ελληνικές λέξεις"]]]]]
 
-     [:div {:class "flex flex-row-reverse space-x-4 space-x-reverse"}
+     [:div {:class "flex flex-row-reverse justify-between hover:wiggle"}
       [:button {:type "submit",
-                :class "justify-center rounded-md bg-blue-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-blue-700 flex items-center justify-center"}
-       [:svg {:xmlns "http://www.w3.org/2000/svg", :viewbox "0 0 24 24", :fill "currentColor", :class "w-6 h-6"}
-        [:path {:fill-rule "evenodd", :d "M4.5 5.653c0-1.426 1.529-2.33 2.779-1.643l11.54 6.348c1.295.712 1.295 2.573 0 3.285L7.28 19.991c-1.25.687-2.779-.217-2.779-1.643V5.653z", :clip-rule "evenodd"}]]
+                :class "rounded-md bg-blue-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-blue-700 flex items-center wiggle"}
+       (ui/icon "play" {:class "w-6 h-6" :fill-mode :solid})
 
-       [:span {:class "align-center inline"} "Play!"]]
+       "Play!"]
       [:div {:_ "on click hide #match-config-modal"
-             :class "items-center text-blue-400 hover:underline hover:text-blue-500 my-2 h-full text-sm font-medium"}
-       "Go back"]])]])
+             :class "flex items-center text-blue-400 hover:underline hover:text-blue-500 my-2 h-full text-sm font-medium wiggle animation"}
+       (ui/icon "arrow-left" {:class "w-6 h-6" :fill-mode :solid})
+       [:svg {:xmlns "http://www.w3.org/2000/svg", :viewbox "0 0 448 512", :fill "currentColor", :class "w-6 h-6"}
+        [:path {:d "M9.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.2 288 416 288c17.7 0 32-14.3 32-32s-14.3-32-32-32l-306.7 0L214.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"}]]
+       "Back"]])]])
 
 (defn component-modal [content-fn id]
   [:div {:id id
@@ -223,8 +244,28 @@
              :data-bs-target "#match-config-modal"}
     "New match"]])
 
+(defn settings [{:keys [session biff/db] :as _req}]
+  (let [match-ids (matches-list db (:uid session))]
+    [:div
+      [:div {:class "flex items-center"}
+       [:div {:class "text-lg px-2 my-4"} "My matches"
+        [:span {:class "inline-block py-1 px-1.5 leading-none text-center whitespace-nowrap align-baseline font-bold bg-gray-600 text-white rounded-xl text-xs ml-2"} (str (count match-ids))]]]
+      [:div {:class "contents"}
+       (for [m match-ids
+               :let [m (-> m first str)]]
+           [:div {:class "flex items-center h-full"}
+            [:a {:href (str "/app/match/" m)
+                 :class "inline-block px-6 py-2 mx-2 my-2 bg-blue-600 text-white font-medium text-xs leading-tight uppercase rounded shadow-md hover:bg-blue-700 hover:shadow-lg focus:bg-blue-700 focus:shadow-lg focus:outline-none focus:ring-0 active:bg-blue-800 active:shadow-lg transition duration-150 ease-in-out flex"
+                 :title m}
+             (-> (match-get db m) :match/created-at)]
+            [:button {:id (str "btn-delete-" m)
+                      :class "hover:bg-red-500 rounded"
+                      :hx-headers (json/generate-string
+                                   {:x-csrf-token anti-forgery/*anti-forgery-token*})
+                      :hx-delete (str "/app/match/" m)}
+             (ui/icon "trash" {:stroke-width "1.5", :class "w-6 h-6"})]])]]))
+
 (defn app-wrapper
-  ([req] (app-wrapper start-page req))
   ([content-fn {:keys [session biff/db] :as req}]
    (ui/page
     {}
@@ -232,14 +273,17 @@
     [:.h-6]
     [:div.text-2xl.text-center "Codenames"]
 
-    (content-fn req))))
+    (content-fn req)))
+  ([req] (app-wrapper start-page req)))
 
 (def features
   {:routes ["/app" {:middleware [anti-forgery/wrap-anti-forgery
                                  biff/wrap-anti-forgery-websockets
                                  mid/wrap-signed-in]}
             ["" {:get (partial app-wrapper start-page)}]
-            ["/match/:match-id" {:get (partial app-wrapper match)}]
+            ["/match" {:post start-match}]
+            ["/match/:match-id" {:get (partial app-wrapper match)
+                                 :delete match-delete}]
+
             ["/match/:match-id/card/:idx" {:get card-reveal}]
-            ["/match" {:post start-match
-                       :get start-match}]]})
+            ["/settings" {:get (partial app-wrapper settings)}]]})

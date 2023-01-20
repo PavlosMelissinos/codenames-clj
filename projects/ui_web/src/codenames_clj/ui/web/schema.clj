@@ -17,7 +17,8 @@
    :match      [:map
                 [:xt/id :match/id]
                 [:match/grid [:vector :card]]
-                [:match/creator :user/id]]
+                [:match/creator :user/id]
+                [:match/created-at inst?]]
    :player/id  :uuid
    :player     [:map
                 [:xt/id :player/id]
