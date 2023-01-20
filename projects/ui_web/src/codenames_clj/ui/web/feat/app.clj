@@ -4,10 +4,8 @@
             [codenames-clj.ui.web.ui :as ui]
             [codenames-clj.core :as logic]
             [codenames-clj.config :as-alias c]
-            [codenames-clj.ui :as ui-utils]
             [codenames-clj.ui.palette :as palette]
             [cheshire.core :as json]
-            [clojure.math :as math]
             [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.tools.logging :as log]
@@ -215,9 +213,10 @@
 (defn start-match [{:keys [params] :as req}]
   (log/info "Starting match")
   (let [lang (get params :lang "en")
-        grid-size (long (math/pow (parse-long (get params :grid-size "5")) 2))
-        w        (take grid-size (shuffle (words lang)))
-        req      (-> (assoc req :match/cfg (get default-cfg grid-size))
+        grid-size (parse-long (get params :grid-size "5"))
+        grid-area (* grid-size grid-size)
+        w        (take grid-area (shuffle (words lang)))
+        req      (-> (assoc req :match/cfg (get default-cfg grid-area))
                      (assoc-in [:match/cfg :words] w))
         match-id (match-create req)]
     {:status  303
