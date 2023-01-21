@@ -273,7 +273,9 @@
 
 (defn banner [req]
   [:div.flex.h-full.rounded-xl.justify-between.bg-orange-300.items-center
-   (left-banner)
+   [:a {:href "/app"
+        :class "px-3 py-3 mx-2 my-2 text-gray-600 font-bold text-2xl rounded focus:ring-0 hover:text-gray-500 text-center"}
+    "Codenames"]
    (right-banner req)])
 
 ;; banner end
@@ -284,8 +286,6 @@
     {}
     (banner req)
     [:.h-10]
-    [:div.text-2xl.text-center "Codenames"]
-
     (content-fn req)))
   ([req] (app-wrapper start-page req)))
 
