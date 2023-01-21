@@ -259,8 +259,6 @@
              (-> (match-get db m) :match/created-at)]
             [:button {:id (str "btn-delete-" m)
                       :class "hover:bg-red-500 rounded"
-                      :hx-headers (json/generate-string
-                                   {:x-csrf-token anti-forgery/*anti-forgery-token*})
                       :hx-delete (str "/app/match/" m)}
              (ui/icon "trash" {:stroke-width "1.5", :class "w-6 h-6"})]])]]))
 
