@@ -3,4 +3,6 @@
                                 :tag "v0.6.0", :sha "b3027b9"}
         camel-snake-kebab/camel-snake-kebab {:mvn/version "0.4.3"}
         org.slf4j/slf4j-simple {:mvn/version "2.0.0-alpha5"}
-        codenames-clj/core     {:local/root "../../"}}}
+        codenames-clj/core     {:local/root "../../"}}
+ :aliases {:dev {:extra-paths ["dev"]
+                 :extra-deps {org.clj-commons/hickory {:mvn/version "0.7.3"}}}}}
