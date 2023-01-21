@@ -15,17 +15,6 @@
             [ring.middleware.anti-forgery :as anti-forgery]))
 
 
-;; header
-
-(defn header [db session]
-  (let [{:user/keys [email]} (xt/entity db (:uid session))]
-    [:div "Signed in as " email ". "
-     (biff/form
-      {:action "/auth/signout"
-       :class "inline"}
-      [:button.text-blue-500.hover:text-blue-800 {:type "submit"} "Sign out"])
-     "."]))
-
 ;; match
 
 (defn words [lang]
@@ -196,8 +185,6 @@
       [:div {:_ "on click hide #match-config-modal"
              :class "flex items-center text-blue-400 hover:underline hover:text-blue-500 my-2 h-full text-sm font-medium wiggle animation"}
        (ui/icon "arrow-left" {:class "w-6 h-6" :fill-mode :solid})
-       [:svg {:xmlns "http://www.w3.org/2000/svg", :viewbox "0 0 448 512", :fill "currentColor", :class "w-6 h-6"}
-        [:path {:d "M9.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.2 288 416 288c17.7 0 32-14.3 32-32s-14.3-32-32-32l-306.7 0L214.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"}]]
        "Back"]])]])
 
 (defn component-modal [content-fn id]
@@ -245,7 +232,7 @@
 
 (defn settings [{:keys [session biff/db] :as _req}]
   (let [match-ids (matches-list db (:uid session))]
-    [:div
+    [:div.contents
       [:div {:class "flex items-center"}
        [:div {:class "text-lg px-2 my-4"} "My matches"
         [:span {:class "inline-block py-1 px-1.5 leading-none text-center whitespace-nowrap align-baseline font-bold bg-gray-600 text-white rounded-xl text-xs ml-2"} (str (count match-ids))]]]
@@ -262,12 +249,41 @@
                       :hx-delete (str "/app/match/" m)}
              (ui/icon "trash" {:stroke-width "1.5", :class "w-6 h-6"})]])]]))
 
+;; banner start
+
+(defn left-banner []
+  [:a {:href "/app"
+       :class "px-3 py-3 mx-2 my-2 text-gray-600 font-medium text-xs leading-tight rounded hover:bg-blue-700 hover:shadow-lg hover:text-white focus:ring-0 text-center"}
+   (ui/icon "fa-house" {:fill-mode :solid :stroke-width "1.5", :class "w-5 h-5"})])
+
+(defn right-banner [{:keys [biff/db session]}]
+  (let [{:user/keys [email]} (xt/entity db (:uid session))]
+    [:div.flex.flex-row-reverse.items-center
+     (biff/form
+      {:action "/auth/signout"
+       :class "inline"}
+      [:button {:type "submit"
+                :class "px-3 py-3 mx-1 my-1 text-gray-600 text-xs rounded hover:bg-blue-700 hover:shadow-lg hover:text-white focus:ring-0"}
+       (ui/icon "fa-arrow-right-from-bracket"
+                {:fill-mode :solid :stroke-width "1.5", :class "w-5 h-5"})])
+     [:a {:href "/app/settings"
+          :class "inline-block px-3 py-3 mx-1 my-1 text-gray-600 font-medium rounded hover:bg-blue-700 hover:shadow-lg hover:text-white focus:ring-0 flex"
+          :title email}
+      (ui/icon "fa-user-gear" {:fill-mode :solid :stroke-width "1.5", :class "w-5 h-5"})]]))
+
+(defn banner [req]
+  [:div.flex.h-full.rounded-xl.justify-between.bg-orange-300.items-center
+   (left-banner)
+   (right-banner req)])
+
+;; banner end
+
 (defn app-wrapper
-  ([content-fn {:keys [session biff/db] :as req}]
+  ([content-fn req]
    (ui/page
     {}
-    (header db session)
-    [:.h-6]
+    (banner req)
+    [:.h-10]
     [:div.text-2xl.text-center "Codenames"]
 
     (content-fn req)))
