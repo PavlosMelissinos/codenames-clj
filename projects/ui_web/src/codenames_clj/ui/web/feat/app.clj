@@ -182,7 +182,7 @@
 
        "Play!"]
       [:div {:_ "on click hide #match-config-modal"
-             :class "flex items-center text-blue-400 hover:underline hover:text-blue-500 my-2 h-full text-sm font-medium wiggle animation"}
+             :class "flex items-center text-blue-400 hover:underline hover:text-blue-500 my-2 h-full"}
        (ui/icon "arrow-left" {:class "w-6 h-6" :fill-mode :solid})
        "Back"]])]])
 
