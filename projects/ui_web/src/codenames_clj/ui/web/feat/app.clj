@@ -5,7 +5,6 @@
             [codenames-clj.core :as logic]
             [codenames-clj.config :as-alias c]
             [codenames-clj.ui.palette :as palette]
-            [cheshire.core :as json]
             [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.tools.logging :as log]
@@ -57,7 +56,7 @@
        :match/created-at :db/now}])
     (str match-id)))
 
-(defn match-delete [{:keys [path-params session] :as sys}]
+(defn match-delete [{:keys [path-params] :as sys}]
   (let [match-id (-> path-params :match-id)]
     (biff/submit-tx
      sys
@@ -158,8 +157,8 @@
      [:label {:for id, :class "block text-sm font-medium text-gray-700"} label]
      [:input {:type "range", :id id, :name id, :class "w-full mt-1 flex items-center",
               :min (str min), :max (str max), :step (str step)}]
-     `[:div {:class "flex justify-between ml-[7px] mr-[2px] text-sm text-gray-500"}
-       ~@(for [v values] [:div (str (* v v))])]]))
+     [:div {:class "flex justify-between ml-[7px] mr-[2px] text-sm text-gray-500"}
+       (for [v values] [:div (str (* v v))])]]))
 
 (defn component-match-setup []
   [:div {:class "relative transform overflow-hidden rounded-lg bg-white text-left shadow-xl transition-all sm:my-8 sm:max-w-lg"}
@@ -217,15 +216,30 @@
                     16 "grid-cols-4"
                     36 "grid-cols-6"
                     "grid-cols-5")]
-    [:div {:id "codenames-board-area" :class (str "grid border-black gap-2 " grid-cols)}
-     (render-grid match-id grid)]))
+    [:div
+     [:div.md:flex.p-1
+      [:div.bg-red-400.md:mr-2.rounded-lg.p-3.flex.md:block.gap-2
+       [:div
+        [:div [:button.w-36.bg-red-200.rounded.my-2.p-1.hover:font-bold "Join as Spymaster"]]
+        [:div [:button.w-36.bg-red-200.rounded.my-2.p-1.hover:font-bold "Join as Operative"]]]
+       [:div.bg-white.flex-grow.text-center "Player list"]]
+      [:div.min-w-120.my-2.md:my-0.grid.gap-2 {:id "codenames-board-area" :class grid-cols}
+       (render-grid match-id grid)]
+      [:div.bg-blue-400.md:ml-2.rounded-lg.p-3.flex.md:block.md:max-w-30.gap-2
+       ;;[:div "Blue team"]
+       [:div
+        [:div [:button.w-36.bg-blue-200.rounded.my-2.p-1.hover:font-bold "Join as Spymaster"]]
+        [:div [:button.w-36.bg-blue-200.rounded.my-2.p-1.hover:font-bold "Join as Operative"]]]
+       [:div.bg-white.flex-grow.text-center "Player list"]]]
+     [:div.flex.w-full.bg-gray-400.my-2.rounded-lg
+      [:div "X, Y and Z are observing"]]]))
 
 (defn start-page [_]
   [:div {:class "contents"}
    (component-modal component-match-setup "match-config-modal")
 
    [:button {:_ "on click show #match-config-modal"
-             :class "inline-block px-6 py-2 bg-blue-600 text-white font-medium text-xs leading-tight uppercase rounded shadow-md hover:bg-blue-700 hover:shadow-lg focus:bg-blue-700 focus:shadow-lg focus:outline-none focus:ring-0 active:bg-blue-800 active:shadow-lg transition duration-150 ease-in-out flex"
+             :class "inline-block px-6 py-2 bg-blue-600 text-white leading-tight uppercase rounded shadow-md hover:bg-blue-700 hover:shadow-lg focus:bg-blue-700 focus:shadow-lg focus:outline-none focus:ring-0 active:bg-blue-800 active:shadow-lg flex"
              :data-bs-toggle "modal",
              :data-bs-target "#match-config-modal"}
     "New match"]])
@@ -234,20 +248,20 @@
   (let [match-ids (matches-list db (:uid session))]
     [:div.contents
       [:div {:class "flex items-center"}
-       [:div {:class "text-lg px-2 my-4"} "My matches"
-        [:span {:class "inline-block py-1 px-1.5 leading-none text-center whitespace-nowrap align-baseline font-bold bg-gray-600 text-white rounded-xl text-xs ml-2"} (str (count match-ids))]]]
+       [:div {:class "text-xl px-2 my-4"} "My matches"
+        [:span {:class "inline-block py-1 px-1.5 leading-none text-center whitespace-nowrap align-baseline bg-gray-600 text-white rounded-xl ml-2"} (str (count match-ids))]]]
       [:div {:class "contents"}
        (for [m match-ids
                :let [m (-> m first str)]]
            [:div {:class "flex items-center h-full"}
             [:a {:href (str "/app/match/" m)
-                 :class "inline-block px-6 py-2 mx-2 my-2 bg-blue-600 text-white font-medium text-xs leading-tight uppercase rounded shadow-md hover:bg-blue-700 hover:shadow-lg focus:bg-blue-700 focus:shadow-lg focus:outline-none focus:ring-0 active:bg-blue-800 active:shadow-lg transition duration-150 ease-in-out flex"
+                 :class "px-6 py-2 m-2 bg-blue-600 text-white font-medium leading-tight uppercase rounded shadow-md hover:bg-blue-700 hover:shadow-lg focus:bg-blue-700 focus:shadow-lg font-mono tracking-tighter"
                  :title m}
              (-> (match-get db m) :match/created-at)]
             [:button {:id (str "btn-delete-" m)
-                      :class "hover:bg-red-500 rounded"
+                      :class "hover:bg-red-500 rounded p-1 m-1"
                       :hx-delete (str "/app/match/" m)}
-             (ui/icon "trash" {:stroke-width "1.5", :class "w-6 h-6"})]])]]))
+             (ui/icon "trash" {:stroke-width "1.5", :class "w-7 h-7"})]])]]))
 
 ;; banner start
 

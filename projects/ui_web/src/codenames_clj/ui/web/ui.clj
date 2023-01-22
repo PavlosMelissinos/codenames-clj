@@ -60,7 +60,7 @@
   (base
    opts
    [:.bg-orange-50.flex.flex-col.flex-grow
-    [:.p-3.mx-auto.max-w-screen-sm.w-full
+    [:.p-3.mx-auto.max-w-screen-lg.w-full
      (when (bound? #'csrf/*anti-forgery-token*)
        {:hx-headers (cheshire/generate-string
                      {:x-csrf-token csrf/*anti-forgery-token*})})
