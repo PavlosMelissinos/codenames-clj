@@ -114,7 +114,7 @@
                   (not team) :civilian
                   :else team)
         status  (if revealed :revealed :normal)
-        classes (format "py-2 px-4 rounded w-full h-full text-white %s %s %s"
+        classes (format "py-2 px-4 rounded w-full h-full text-white %s %s %s truncate"
                         (get-in role-classes [role status])
                         (get status-classes status)
                         (font-size-class codename))]
