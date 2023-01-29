@@ -67,22 +67,85 @@
 
 (defn matches-list [db user-id]
   (xt/q db
-        '{:find [match-id]
-          :where [[match :match/creator user-id]
-                  [match :xt/id match-id]]}))
+        '{:find [?match-id]
+          :in [?user-id]
+          :where [[?match :match/creator ?user-id]
+                  [?match :xt/id ?match-id]]}
+        user-id))
 
-(defn card-style [{:keys [revealed visible] :as _card}]
-  {:assassin ""
-   :hidden   nil
-   :blue     {:-fx-background-color (:card-blue-team-primary palette/color-palette)
-              :-fx-text-fill (:card-blue-team-primary-alt palette/color-palette)
-              :-fx-opacity (if (and (not revealed) visible) 0.5 1)}
-   :red      {:-fx-background-color (:card-red-team-primary palette/color-palette)
-              :-fx-text-fill (:card-red-team-primary-alt palette/color-palette)
-              :-fx-opacity (if (and (not revealed) visible) 0.5 1)}
-   :civilian {:-fx-background-color (:card-civilian-primary palette/color-palette)
-              :-fx-text-fill (:card-civilian-primary-alt palette/color-palette)
-              :-fx-opacity (if (and (not revealed) visible) 0.5 1)}})
+;; player
+
+(defn players-list [db match-id]
+  (map first (xt/q db
+                   '{:find [(pull ?player [:xt/id {:player/user [:user/email]} :player/role :player/nick :player/team])]
+                     :in [?match-id]
+                     :where [[?player :player/match ?match-id]]}
+                   (parse-uuid match-id))))
+
+(defn nickname [{:player/keys [nick user] :as user-player}]
+  (or nick (:user/email user)))
+
+(defn player-get [db user-id match-id]
+  (biff/lookup db :player/user user-id :player/match match-id))
+
+(defn player-add [sys user-id {:keys [match team role]}]
+  (let [player (merge
+                {:db/doc-type :player
+                 :xt/id (random-uuid)
+                 :player/user user-id
+                 :player/match match
+                 :player/role role}
+                (when team {:player/team team}))]
+    (log/info "Adding player to db")
+    (biff/submit-tx sys [player
+                         [::xt/fn :biff/ensure-unique {:player/user user-id
+                                                       :player/match match}]])))
+
+(defn player-update [sys player {:keys [match team role]}]
+  (let [player (merge
+                player
+                {:db/op :update
+                 :db/doc-type :player
+                 :player/match match
+                 :player/role role}
+                (when team {:player/team team}))]
+    (log/info "Updating player info")
+    (biff/submit-tx sys [player])))
+
+(defn player-delete [sys id]
+  (log/info "Deleting player")
+  (biff/submit-tx sys [{:db/op :delete
+                        :xt/id (parse-uuid id)}]))
+
+(comment
+  (let [{:keys [biff/db] :as sys} (codenames-clj.ui.web.repl/get-sys)]
+    (->> (players-list db "403998b4-5fba-4e22-b2d1-500a5637db51")
+         (map (comp #(player-delete sys %) str :xt/id))))
+
+  (let [{:keys [biff/db] :as sys} (codenames-clj.ui.web.repl/get-sys)
+        players (players-list db "403998b4-5fba-4e22-b2d1-500a5637db51")]
+    [players (count players)])
+
+  (-> (codenames-clj.ui.web.repl/get-sys)
+      keys
+      sort)
+  ,)
+
+(defn handle-player-set-role [{:keys [session path-params params biff/db] :as req}]
+  (let [user-id (:uid session)
+        match   (parse-uuid (:match-id path-params))
+        params  (-> params
+                    (update :team keyword)
+                    (update :role keyword)
+                    (select-keys [:team :role])
+                    (assoc :match match))
+        player  (player-get db user-id match)]
+    (if player
+      (player-update req player params)
+      (player-add req user-id params))
+    [:div]))
+
+;; player end
 
 (def role-classes
   {:hidden {:normal "bg-teal-600 hover:bg-teal-800"
