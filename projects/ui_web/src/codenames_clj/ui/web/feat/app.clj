@@ -271,6 +271,39 @@
     {:status  303
      :headers {"location" (str "/app/match/" match-id)}}))
 
+(defn team-info-component [{:keys [biff/db team match-id] :as m}]
+  #_["bg-red-200" "bg-red-300" "bg-red-400"]
+  #_["bg-blue-200" "bg-blue-300" "bg-blue-400"]
+  [:div.md:mr-2.rounded-lg.p-3.flex.md:block.gap-2
+   {:class (format "bg-%s-400" (name team))}
+   [:div
+    (biff/form
+     {:hidden {:team team, :role :spymaster}
+      :hx-post (format "/app/match/%s/player" match-id)
+      :hx-swap "none"
+      :_ (str "on htmx:afterRequest"
+              " add @disabled to .join-as-op")}
+     [:button.w-36.rounded.my-2.p-1.enabled:hover:font-bold.disabled:opacity-60
+      {:type "submit"
+       :class (format "bg-%s-200" (name team))}
+      "Join as Spymaster"])
+    (biff/form
+     {:hidden {:team team, :role :spy}
+      :hx-post (format "/app/match/%s/player" match-id)
+      :hx-swap "none"}
+     [:button.w-36.rounded.my-2.p-1.enabled:hover:font-bold.disabled:opacity-60
+      {:type "submit"
+       :class (format "bg-%s-200" (name team))
+       :id (format "join-as-%s-operative" (name team))}
+      "Join as Operative"])]
+   [:div.flex-grow.text-center.truncate
+    {:class (format "bg-%s-300" (name team))}
+    (for [{:player/keys [role team] :as p}
+          (->> (players-list db match-id)
+               (filter #(= (:player/team %) team))
+               (sort-by nickname))]
+      [:div (nickname p)])]])
+
 (defn match [{:keys [path-params biff/db] :as _req}]
   (let [{:keys [match-id]} path-params
         grid (:match/grid (biff/lookup db :xt/id (parse-uuid match-id)))
@@ -281,19 +314,10 @@
                     "grid-cols-5")]
     [:div
      [:div.md:flex.p-1
-      [:div.bg-red-400.md:mr-2.rounded-lg.p-3.flex.md:block.gap-2
-       [:div
-        [:div [:button.w-36.bg-red-200.rounded.my-2.p-1.hover:font-bold "Join as Spymaster"]]
-        [:div [:button.w-36.bg-red-200.rounded.my-2.p-1.hover:font-bold "Join as Operative"]]]
-       [:div.bg-white.flex-grow.text-center "Player list"]]
+      (team-info-component {:biff/db db :team :red :match-id match-id})
       [:div.min-w-120.my-2.md:my-0.grid.gap-2 {:id "codenames-board-area" :class grid-cols}
        (render-grid match-id grid)]
-      [:div.bg-blue-400.md:ml-2.rounded-lg.p-3.flex.md:block.md:max-w-30.gap-2
-       ;;[:div "Blue team"]
-       [:div
-        [:div [:button.w-36.bg-blue-200.rounded.my-2.p-1.hover:font-bold "Join as Spymaster"]]
-        [:div [:button.w-36.bg-blue-200.rounded.my-2.p-1.hover:font-bold "Join as Operative"]]]
-       [:div.bg-white.flex-grow.text-center "Player list"]]]
+      (team-info-component {:biff/db db :team :blue :match-id match-id})]
      [:div.flex.w-full.bg-gray-400.my-2.rounded-lg
       [:div "X, Y and Z are observing"]]]))
 
@@ -372,8 +396,9 @@
                                  mid/wrap-signed-in]}
             ["" {:get (partial app-wrapper start-page)}]
             ["/match" {:post start-match}]
-            ["/match/:match-id" {:get (partial app-wrapper match)
-                                 :delete match-delete}]
-
-            ["/match/:match-id/card/:idx" {:get card-reveal}]
+            ["/match/:match-id"
+             ["" {:get (partial app-wrapper match)
+                  :delete match-delete}]
+             ["/player" {:post handle-player-set-role}]
+             ["/card/:idx" {:get card-reveal}]]
             ["/settings" {:get (partial app-wrapper settings)}]]})

@@ -24,6 +24,7 @@
                 [:xt/id :player/id]
                 [:player/user :user/id]
                 [:player/match :match/id]
+                [:player/nick {:optional true} :string]
                 [:player/role [:enum :spymaster :spy :observer]]
                 [:player/team {:optional true} [:enum :blue :red]]]
    :mem/id     :uuid
