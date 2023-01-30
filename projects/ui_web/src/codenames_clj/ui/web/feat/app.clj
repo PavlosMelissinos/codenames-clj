@@ -165,9 +165,9 @@
 
 (defn font-size-class [codename]
   (cond
-    (> (count codename) 11) "text-xs"
-    (> (count codename) 9) "text-sm"
-    :else ""))
+    (> (count codename) 8) "text-xs"
+    (> (count codename) 7) "text-sm"
+    :else "text-base"))
 
 (defn render-card [{:match/keys [grid id] :as _match} idx]
   (let [{:keys [team revealed visible assassin card/codename]} (get grid idx)
@@ -177,7 +177,7 @@
                   (not team) :civilian
                   :else team)
         status  (if revealed :revealed :normal)
-        classes (format "py-2 px-4 rounded w-full h-full text-white %s %s %s truncate"
+        classes (format "py-3 px-1 rounded w-full h-full text-white %s %s %s truncate sm:text-base"
                         (get-in role-classes [role status])
                         (get status-classes status)
                         (font-size-class codename))]
