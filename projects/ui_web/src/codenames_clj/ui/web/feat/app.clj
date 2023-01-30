@@ -274,16 +274,16 @@
 (defn team-info-component [{:keys [biff/db team match-id] :as m}]
   #_["bg-red-200" "bg-red-300" "bg-red-400"]
   #_["bg-blue-200" "bg-blue-300" "bg-blue-400"]
-  [:div.md:mr-2.rounded-lg.p-3.flex.md:block.gap-2
+  [:div.rounded-lg.p-3.flex.md:flex-col.gap-2
    {:class (format "bg-%s-400" (name team))}
-   [:div
+   [:div.flex-col.space-y-3
     (biff/form
      {:hidden {:team team, :role :spymaster}
       :hx-post (format "/app/match/%s/player" match-id)
       :hx-swap "none"
       :_ (str "on htmx:afterRequest"
               " add @disabled to .join-as-op")}
-     [:button.w-36.rounded.my-2.p-1.enabled:hover:font-bold.disabled:opacity-60
+     [:button.w-36.rounded.p-1.enabled:hover:font-bold.disabled:opacity-60
       {:type "submit"
        :class (format "bg-%s-200" (name team))}
       "Join as Spymaster"])
@@ -291,7 +291,7 @@
      {:hidden {:team team, :role :spy}
       :hx-post (format "/app/match/%s/player" match-id)
       :hx-swap "none"}
-     [:button.w-36.rounded.my-2.p-1.enabled:hover:font-bold.disabled:opacity-60
+     [:button.w-36.rounded.p-1.enabled:hover:font-bold.disabled:opacity-60
       {:type "submit"
        :class (format "bg-%s-200" (name team))
        :id (format "join-as-%s-operative" (name team))}
@@ -312,13 +312,14 @@
                     16 "grid-cols-4"
                     36 "grid-cols-6"
                     "grid-cols-5")]
-    [:div
-     [:div.md:flex.p-1
+    [:div.space-y-2
+     [:div.flex.flex-col.md:flex-row.gap-2
       (team-info-component {:biff/db db :team :red :match-id match-id})
-      [:div.min-w-120.my-2.md:my-0.grid.gap-2 {:id "codenames-board-area" :class grid-cols}
+      [:div.min-w-120.grid.gap-2.flex-grow
+       {:id "codenames-board-area" :class grid-cols}
        (render-grid match-id grid)]
       (team-info-component {:biff/db db :team :blue :match-id match-id})]
-     [:div.flex.w-full.bg-gray-400.my-2.rounded-lg
+     [:div.flex.p-2.bg-gray-400.rounded-lg
       [:div "X, Y and Z are observing"]]]))
 
 (defn start-page [_]
