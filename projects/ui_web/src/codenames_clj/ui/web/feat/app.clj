@@ -4,13 +4,10 @@
             [codenames-clj.ui.web.ui :as ui]
             [codenames-clj.core :as logic]
             [codenames-clj.config :as-alias c]
-            [codenames-clj.ui.palette :as palette]
             [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.tools.logging :as log]
-            [rum.core :as rum]
             [xtdb.api :as xt]
-            [ring.adapter.jetty9 :as jetty]
             [ring.middleware.anti-forgery :as anti-forgery]))
 
 
@@ -101,45 +98,34 @@
                          [::xt/fn :biff/ensure-unique {:player/user user-id
                                                        :player/match match}]])))
 
-(defn player-update [sys player {:keys [match team role]}]
-  (let [player (merge
-                player
-                {:db/op :update
-                 :db/doc-type :player
-                 :player/match match
-                 :player/role role}
-                (when team {:player/team team}))]
-    (log/info "Updating player info")
-    (biff/submit-tx sys [player])))
+(defn player-update [sys
+                     {old-role :player/role :as player}
+                     {:keys [match team role]}]
+  (if (and (= :spymaster old-role) (not (= :spymaster role)))
+    (log/info "Not allowed")
+    (let [player (merge
+                  player
+                  {:db/op :update
+                   :db/doc-type :player
+                   :player/match match
+                   :player/role role}
+                  (when team {:player/team team}))]
+      (log/info "Updating player info")
+      (biff/submit-tx sys [player]))))
 
 (defn player-delete [sys id]
   (log/info "Deleting player")
   (biff/submit-tx sys [{:db/op :delete
                         :xt/id (parse-uuid id)}]))
 
-(comment
-  (let [{:keys [biff/db] :as sys} (codenames-clj.ui.web.repl/get-sys)]
-    (->> (players-list db "403998b4-5fba-4e22-b2d1-500a5637db51")
-         (map (comp #(player-delete sys %) str :xt/id))))
-
-  (let [{:keys [biff/db] :as sys} (codenames-clj.ui.web.repl/get-sys)
-        players (players-list db "403998b4-5fba-4e22-b2d1-500a5637db51")]
-    [players (count players)])
-
-  (-> (codenames-clj.ui.web.repl/get-sys)
-      keys
-      sort)
-  ,)
-
-(defn handle-player-set-role [{:keys [session path-params params biff/db] :as req}]
+(defn handle-player-set-role [{:keys [session params biff/db match] :as req}]
   (let [user-id (:uid session)
-        match   (parse-uuid (:match-id path-params))
         params  (-> params
                     (update :team keyword)
                     (update :role keyword)
                     (select-keys [:team :role])
-                    (assoc :match match))
-        player  (player-get db user-id match)]
+                    (assoc :match (:xt/id match)))
+        player  (player-get db user-id (:xt/id match))]
     (if player
       (player-update req player params)
       (player-add req user-id params))
@@ -149,18 +135,24 @@
 
 (def role-classes
   {:hidden {:normal "bg-teal-600 hover:bg-teal-800"
+            :visible "bg-teal-600 hover:bg-teal-800"
             :revealed "bg-teal-600 text-black"}
    :assassin {:normal "bg-slate-600 hover:bg-slate-800"
+              :visible "bg-slate-600 hover:bg-slate-800"
               :revealed "bg-slate-600"}
    :civilian {:normal "bg-amber-600 hover:bg-amber-800"
+              :visible "bg-amber-600 hover:bg-amber-800"
               :revealed "bg-amber-600 text-black"}
    :blue {:normal "bg-blue-600 hover:bg-blue-800"
+          :visible "bg-blue-600 hover:bg-blue-800"
           :revealed "bg-blue-600 text-black"}
    :red {:normal "bg-red-600 hover:bg-red-800"
+         :visible "bg-red-600 hover:bg-red-800"
          :revealed "bg-red-600 text-black"}})
 
 (def status-classes
   {:normal   "hover:shadow-lg active:shadow-lg"
+   :visible  "hover:shadow-lg active:shadow-lg"
    :revealed "opacity-50"})
 
 (defn font-size-class [codename]
@@ -170,13 +162,17 @@
     :else "text-base"))
 
 (defn render-card [{:match/keys [grid id] :as _match} idx]
-  (let [{:keys [team revealed visible assassin card/codename]} (get grid idx)
+  (let [{:card/keys [codename]
+         :keys [team revealed visible assassin]} (nth grid idx)
         role    (cond
                   (not (or visible revealed)) :hidden
                   assassin :assassin
                   (not team) :civilian
                   :else team)
-        status  (if revealed :revealed :normal)
+        status  (cond
+                  revealed :revealed
+                  visible :visible
+                  :else :normal)
         classes (format "py-3 px-1 rounded w-full h-full text-white %s %s %s truncate sm:text-base"
                         (get-in role-classes [role status])
                         (get status-classes status)
@@ -184,7 +180,7 @@
     [:button {:hx-get (format "/app/match/%s/card/%s" id idx)
               :hx-swap "outerHTML"
               :type "submit"
-              :title (:codename (get grid idx))
+              :title (:codename (nth grid idx))
               :disabled (boolean revealed)
               :class classes} codename]))
 
@@ -271,7 +267,7 @@
     {:status  303
      :headers {"location" (str "/app/match/" match-id)}}))
 
-(defn team-info-component [{:keys [biff/db team match-id] :as m}]
+(defn team-info-component [{:keys [biff/db team match-id player] :as m}]
   #_["bg-red-200" "bg-red-300" "bg-red-400"]
   #_["bg-blue-200" "bg-blue-300" "bg-blue-400"]
   [:div.rounded-lg.p-3.flex.md:flex-col.gap-2
@@ -291,12 +287,15 @@
      {:hidden {:team team, :role :spy}
       :hx-post (format "/app/match/%s/player" match-id)
       :hx-swap "none"}
-     [:button.w-36.rounded.p-1.enabled:hover:font-bold.disabled:opacity-60
-      {:type "submit"
-       :class (format "bg-%s-200" (name team))
-       :id (format "join-as-%s-operative" (name team))}
+     [:button.w-36.rounded.p-1.enabled:hover:font-bold.disabled:opacity-60.disabled:text-gray-400
+      (merge {:type "submit"
+
+              :class (format "bg-%s-200%s" (name team) (if (= :spymaster (:player/role player)) " disabled" ""))
+              :id (format "join-as-%s-operative" (name team))}
+             (when (= :spymaster (:player/role player))
+               {:disabled true}))
       "Join as Operative"])]
-   [:div.flex-grow.text-center.truncate
+   [:div.rounded.flex-grow.text-center.truncate
     {:class (format "bg-%s-300" (name team))}
     (for [{:player/keys [role team] :as p}
           (->> (players-list db match-id)
@@ -304,9 +303,11 @@
                (sort-by nickname))]
       [:div (nickname p)])]])
 
-(defn match [{:keys [path-params biff/db] :as _req}]
-  (let [{:keys [match-id]} path-params
-        grid (:match/grid (biff/lookup db :xt/id (parse-uuid match-id)))
+(defn match [{:keys [biff/db match player] :as _req}]
+  (let [match-id (str (:xt/id match))
+        grid (->> match
+                  :match/grid
+                  (map #(assoc % :visible (= (:player/role player) :spymaster))))
         grid-cols (case (count grid)
                     9 "grid-cols-3"
                     16 "grid-cols-4"
@@ -314,11 +315,13 @@
                     "grid-cols-5")]
     [:div.space-y-2
      [:div.flex.flex-col.md:flex-row.gap-2
-      (team-info-component {:biff/db db :team :red :match-id match-id})
-      [:div.min-w-120.grid.gap-2.flex-grow
-       {:id "codenames-board-area" :class grid-cols}
-       (render-grid match-id grid)]
-      (team-info-component {:biff/db db :team :blue :match-id match-id})]
+      (team-info-component {:biff/db db :team :red :match-id match-id :player player})
+      (when player
+        [:div.grid.gap-2.flex-grow
+         {:id "codenames-board-area"
+          :class grid-cols}
+         (render-grid match-id grid)])
+      (team-info-component {:biff/db db :team :blue :match-id match-id :player player})]
      [:div.flex.p-2.bg-gray-400.rounded-lg
       [:div "X, Y and Z are observing"]]]))
 
@@ -327,7 +330,10 @@
    (component-modal component-match-setup "match-config-modal")
 
    [:button {:_ "on click show #match-config-modal"
-             :class "inline-block px-6 py-2 bg-blue-600 text-white leading-tight uppercase rounded shadow-md hover:bg-blue-700 hover:shadow-lg focus:bg-blue-700 focus:shadow-lg focus:outline-none focus:ring-0 active:bg-blue-800 active:shadow-lg flex"
+             :class (str "inline-block px-6 py-2 bg-blue-600 text-white leading-tight uppercase rounded shadow-md flex"
+                         "hover:bg-blue-700 hover:shadow-lg"
+                         "focus:bg-blue-700 focus:shadow-lg focus:outline-none focus:ring-0"
+                         "active:bg-blue-800 active:shadow-lg")
              :data-bs-toggle "modal",
              :data-bs-target "#match-config-modal"}
     "New match"]])
@@ -397,7 +403,7 @@
                                  mid/wrap-signed-in]}
             ["" {:get (partial app-wrapper start-page)}]
             ["/match" {:post start-match}]
-            ["/match/:match-id"
+            ["/match/:match-id" {:middleware [mid/wrap-match]}
              ["" {:get (partial app-wrapper match)
                   :delete match-delete}]
              ["/player" {:post handle-player-set-role}]

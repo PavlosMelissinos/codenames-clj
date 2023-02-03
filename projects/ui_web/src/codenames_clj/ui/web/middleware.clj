@@ -1,4 +1,6 @@
-(ns codenames-clj.ui.web.middleware)
+(ns codenames-clj.ui.web.middleware
+  (:require [com.biffweb :as biff]
+            [xtdb.api :as xt]))
 
 (defn wrap-redirect-signed-in [handler]
   (fn [{:keys [session] :as req}]
