@@ -279,9 +279,12 @@
       :hx-swap "none"
       :_ (str "on htmx:afterRequest"
               " add @disabled to .join-as-op")}
-     [:button.w-36.rounded.p-1.enabled:hover:font-bold.disabled:opacity-60
-      {:type "submit"
-       :class (format "bg-%s-200" (name team))}
+     [:button.w-36.rounded.p-1.enabled:hover:font-bold.disabled:opacity-60.disabled:text-gray-400
+      (merge {:type "submit"
+              :class (format "bg-%s-200" (name team))}
+             (when (and (= :spymaster (:player/role player))
+                        (= team (:player/team player)))
+               {:disabled true}))
       "Join as Spymaster"])
     (biff/form
      {:hidden {:team team, :role :spy}
@@ -304,6 +307,7 @@
       [:div (nickname p)])]])
 
 (defn match [{:keys [biff/db match player] :as _req}]
+  (log/info "Loading match...")
   (let [match-id (str (:xt/id match))
         grid (->> match
                   :match/grid
@@ -346,7 +350,7 @@
         [:span {:class "inline-block py-1 px-1.5 leading-none text-center whitespace-nowrap align-baseline bg-gray-600 text-white rounded-xl ml-2"} (str (count match-ids))]]]
       [:div {:class "contents"}
        (for [m match-ids
-               :let [m (-> m first str)]]
+             :let [m (-> m first str)]]
            [:div {:class "flex items-center h-full"}
             [:a {:href (str "/app/match/" m)
                  :class "px-6 py-2 m-2 bg-blue-600 text-white font-medium leading-tight uppercase rounded shadow-md hover:bg-blue-700 hover:shadow-lg focus:bg-blue-700 focus:shadow-lg font-mono tracking-tighter"
