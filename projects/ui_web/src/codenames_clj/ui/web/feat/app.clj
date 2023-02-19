@@ -1,15 +1,16 @@
 (ns codenames-clj.ui.web.feat.app
-  (:require [com.biffweb :as biff]
-            [codenames-clj.ui.web.middleware :as mid]
+  (:require [codenames-clj.ui.web.middleware :as mid]
             [codenames-clj.ui.web.ui :as ui]
             [codenames-clj.core :as logic]
             [codenames-clj.config :as-alias c]
+            [com.biffweb :as biff]
             [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.tools.logging :as log]
-            [xtdb.api :as xt]
-            [ring.middleware.anti-forgery :as anti-forgery]))
-
+            [ring.adapter.jetty9 :as jetty]
+            [ring.middleware.anti-forgery :as anti-forgery]
+            [rum.core :as rum]
+            [xtdb.api :as xt]))
 
 ;; match
 
@@ -40,7 +41,7 @@
 ;; match
 
 (defn match-get [db match-id]
-  (biff/lookup db :xt/id (parse-uuid match-id)))
+  (biff/lookup db :xt/id match-id))
 
 (defn match-create [{:keys [match/cfg session] :as sys}]
   (let [match-id (random-uuid)]
@@ -77,24 +78,29 @@
                    '{:find [(pull ?player [:xt/id {:player/user [:user/email]} :player/role :player/nick :player/team])]
                      :in [?match-id]
                      :where [[?player :player/match ?match-id]]}
-                   (parse-uuid match-id))))
+                   match-id)))
 
-(defn nickname [{:player/keys [nick user] :as user-player}]
+(defn nickname [{:player/keys [nick user]}]
   (or nick (:user/email user)))
 
 (defn player-get [db user-id match-id]
   (biff/lookup db :player/user user-id :player/match match-id))
 
 (defn player-add [sys user-id {:keys [match team role]}]
-  (let [player (merge
-                {:db/doc-type :player
-                 :xt/id (random-uuid)
-                 :player/user user-id
-                 :player/match match
-                 :player/role role}
-                (when team {:player/team team}))]
+  (let [player (cond-> {:db/doc-type :player
+                        :xt/id (random-uuid)
+                        :player/user user-id
+                        :player/match match
+                        :player/role (or role :observer)}
+                 team (assoc :player/team team))]
     (log/info "Adding player to db")
     (biff/submit-tx sys [player
+                         {:db/doc-type  :action
+                          :db/op        :put
+                          :xt/id        (random-uuid)
+                          :action/actor (:xt/id player)
+                          :action/match match
+                          :action/type  :codenames/player-added}
                          [::xt/fn :biff/ensure-unique {:player/user user-id
                                                        :player/match match}]])))
 
@@ -111,7 +117,13 @@
                    :player/role role}
                   (when team {:player/team team}))]
       (log/info "Updating player info")
-      (biff/submit-tx sys [player]))))
+      (biff/submit-tx sys [player
+                           {:db/doc-type  :action
+                            :db/op        :put
+                            :xt/id        (random-uuid)
+                            :action/actor (:xt/id player)
+                            :action/match match
+                            :action/type  :codenames/team-role-selected}]))))
 
 (defn player-delete [sys id]
   (log/info "Deleting player")
@@ -161,7 +173,7 @@
     (> (count codename) 7) "text-sm"
     :else "text-base"))
 
-(defn render-card [{:match/keys [grid id] :as _match} idx]
+(defn render-card [{:keys [disabled] :match/keys [grid id] :as _match} idx]
   (let [{:card/keys [codename]
          :keys [team revealed visible assassin]} (nth grid idx)
         role    (cond
@@ -179,9 +191,10 @@
                         (font-size-class codename))]
     [:button {:hx-get (format "/app/match/%s/card/%s" id idx)
               :hx-swap "outerHTML"
+              :id (str "codenames-card-" idx)
               :type "submit"
               :title (:codename (nth grid idx))
-              :disabled (boolean revealed)
+              :disabled (or disabled (boolean revealed))
               :class classes} codename]))
 
 (defn grid [db match-id]
@@ -189,11 +202,10 @@
       :match/grid))
 
 (defn card-info [db {:keys [match-id card-idx]}]
-  (-> (biff/lookup db :xt/id match-id)
-      :match/grid
+  (-> (grid db match-id)
       (nth card-idx)))
 
-(defn card-reveal [{:keys [session path-params biff/db] :as req}]
+(defn card-reveal [{:keys [session path-params biff/db player] :as req}]
   (let [match-id (parse-uuid (:match-id path-params))
         card-idx (parse-long (:idx path-params))
         g        (-> (grid db match-id) (logic/reveal card-idx))]
@@ -202,12 +214,26 @@
                       :db/op         :update
                       :xt/id         match-id
                       :match/grid    g
-                      :match/creator (:uid session)}])
+                      :match/creator (:uid session)}
+                     {:db/doc-type  :action
+                      :db/op        :put
+                      :xt/id        (random-uuid)
+                      :action/actor (:xt/id player)
+                      :action/match match-id
+                      :action/type  :codenames/card-revealed}])
     (render-card {:match/grid g :match/id match-id} card-idx)))
 
-(defn render-grid [match-id grid]
-  (for [i (range (count grid))]
-    (render-card {:match/id match-id :match/grid grid} i)))
+(defn render-grid [match-id grid read-only]
+  (let [grid-cols (case (count grid)
+                    9 "grid-cols-3"
+                    16 "grid-cols-4"
+                    36 "grid-cols-6"
+                    "grid-cols-5")]
+    [:div.grid.gap-2.flex-grow
+     {:id "codenames-board-area"
+      :class grid-cols}
+     (for [i (range (count grid))]
+       (render-card {:disabled read-only :match/id match-id :match/grid grid} i))]))
 
 (defn component-range [{:keys [min max step label id]}]
   (let [id     (or id (-> label str/lower-case (str/replace #" " "-")))
@@ -267,7 +293,7 @@
     {:status  303
      :headers {"location" (str "/app/match/" match-id)}}))
 
-(defn team-info-component [{:keys [biff/db team match-id player] :as m}]
+(defn team-info-component [{:keys [biff/db team match-id player]}]
   #_["bg-red-200" "bg-red-300" "bg-red-400"]
   #_["bg-blue-200" "bg-blue-300" "bg-blue-400"]
   [:div.rounded-lg.p-3.flex.md:flex-col.gap-2
@@ -300,34 +326,50 @@
       "Join as Operative"])]
    [:div.rounded.flex-grow.text-center.truncate
     {:class (format "bg-%s-300" (name team))}
-    (for [{:player/keys [role team] :as p}
-          (->> (players-list db match-id)
-               (filter #(= (:player/team %) team))
-               (sort-by nickname))]
+    (for [p (->> (players-list db (parse-uuid match-id))
+                 (filter #(= (:player/team %) team))
+                 (sort-by nickname))]
       [:div (nickname p)])]])
 
-(defn match [{:keys [biff/db match player] :as _req}]
+(defn observer? [player] (= :observer (:player/role player)))
+
+(defn match [{{:keys [xt/id match/grid]} :match
+              :keys [biff/db player session] :as sys}]
   (log/info "Loading match...")
-  (let [match-id (str (:xt/id match))
-        grid (->> match
-                  :match/grid
-                  (map #(assoc % :visible (= (:player/role player) :spymaster))))
-        grid-cols (case (count grid)
-                    9 "grid-cols-3"
-                    16 "grid-cols-4"
-                    36 "grid-cols-6"
-                    "grid-cols-5")]
+  (let [player (or player (player-add sys (:uid session) {:match id}))
+        match-id (str id)
+        grid (map #(assoc % :visible (= (:player/role player) :spymaster)) grid)]
     [:div.space-y-2
+     {:hx-ext     "ws"
+      :ws-connect (format "/app/match/%s/event" match-id)}
      [:div.flex.flex-col.md:flex-row.gap-2
       (team-info-component {:biff/db db :team :red :match-id match-id :player player})
-      (when player
-        [:div.grid.gap-2.flex-grow
-         {:id "codenames-board-area"
-          :class grid-cols}
-         (render-grid match-id grid)])
+      (render-grid match-id grid (observer? player))
       (team-info-component {:biff/db db :team :blue :match-id match-id :player player})]
      [:div.flex.p-2.bg-gray-400.rounded-lg
-      [:div "X, Y and Z are observing"]]]))
+      "Currently observing: "
+      (for [{:player/keys [user] :as p} (players-list db id)
+            :when (observer? p)]
+        [:span.px-2 (:user/email user)])]]))
+
+(defn match-event [{:codenames-clj.ui.web/keys [match-clients]
+                    :keys [player match]}]
+  (log/info "Loading match events")
+  (let [match-id  (:xt/id match)
+        player-id (:xt/id player)]
+    {:status 101
+     :headers {"upgrade" "websocket"
+               "connection" "upgrade"}
+     :ws {:on-connect (fn [ws]
+                        (prn :connect (swap! match-clients
+                                             assoc-in [match-id player-id] ws)))
+          :on-close (fn [ws status-code reason]
+                      (let [x :wip
+                            ;;old-client (-> @match-clients match-id player-id)
+                            ]
+                        (prn :disconnect
+                             (swap! match-clients
+                                    update match-id dissoc player-id))))}}))
 
 (defn start-page [_]
   [:div {:class "contents"}
@@ -349,8 +391,7 @@
        [:div {:class "text-xl px-2 my-4"} "My matches"
         [:span {:class "inline-block py-1 px-1.5 leading-none text-center whitespace-nowrap align-baseline bg-gray-600 text-white rounded-xl ml-2"} (str (count match-ids))]]]
       [:div {:class "contents"}
-       (for [m match-ids
-             :let [m (-> m first str)]]
+       (for [[m & _] match-ids]
            [:div {:class "flex items-center h-full"}
             [:a {:href (str "/app/match/" m)
                  :class "px-6 py-2 m-2 bg-blue-600 text-white font-medium leading-tight uppercase rounded shadow-md hover:bg-blue-700 hover:shadow-lg focus:bg-blue-700 focus:shadow-lg font-mono tracking-tighter"
@@ -401,6 +442,21 @@
     (content-fn req)))
   ([req] (app-wrapper start-page req)))
 
+(defn on-action [{:keys [biff/db]
+                  :codenames-clj.ui.web/keys [match-clients]}
+                 tx]
+  (doseq [[op & args] (::xt/tx-ops tx)
+          :when (= op ::xt/put)
+          :let [[{:action/keys [match type actor]}] args
+                {:match/keys [grid]} (xt/entity db match)
+                player (xt/entity db actor)
+                grid (map #(assoc % :visible (= (:player/role player) :spymaster)) grid)
+                html (rum/render-static-markup
+                      (render-grid match grid (observer? player)))]
+          :when type
+          [_ c] (get @match-clients match)]
+    (jetty/send! c html)))
+
 (def features
   {:routes ["/app" {:middleware [anti-forgery/wrap-anti-forgery
                                  biff/wrap-anti-forgery-websockets
@@ -411,5 +467,7 @@
              ["" {:get (partial app-wrapper match)
                   :delete match-delete}]
              ["/player" {:post handle-player-set-role}]
-             ["/card/:idx" {:get card-reveal}]]
-            ["/settings" {:get (partial app-wrapper settings)}]]})
+             ["/card/:idx" {:get card-reveal}]
+             ["/event" {:get match-event}]]
+            ["/settings" {:get (partial app-wrapper settings)}]]
+   :on-tx on-action})

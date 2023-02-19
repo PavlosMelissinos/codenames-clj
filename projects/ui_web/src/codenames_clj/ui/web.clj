@@ -54,7 +54,7 @@
 
 (defn start []
   (biff/start-system
-   {:codenames-clj.ui.web/chat-clients (atom #{})
+   {:codenames-clj.ui.web/match-clients (atom {})
     :biff/features #'features
     :biff/after-refresh `start
     :biff/handler #'handler

@@ -25,8 +25,17 @@
                 [:player/user :user/id]
                 [:player/match :match/id]
                 [:player/nick {:optional true} :string]
-                [:player/role [:enum :spymaster :spy :observer]]
+                [:player/role [:enum {:default :observer} :spymaster :spy :observer]]
                 [:player/team {:optional true} [:enum :blue :red]]]
+   :action/id  :uuid
+   :action     [:map
+                [:xt/id :action/id]
+                [:action/actor :player/id]
+                [:action/match :match/id]
+                [:action/type [:enum
+                               :codenames/card-revealed :codenames/team-role-selected
+                               :codenames/player-added]]
+                [:action/data  {:optional true} [:map]]]
    :mem/id     :uuid
    :membership [:map {:closed true}
                 [:xt/id :mem/id]
