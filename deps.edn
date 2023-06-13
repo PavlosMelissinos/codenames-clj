@@ -12,7 +12,7 @@
                       :extra-paths ["dev"
                                     "test"
                                     "test-resources"]
-                      :extra-deps  {io.github.clojure/tools.deps.alpha {:git/sha "83a477b305839c697666401508c395cfed29506a"}
+                      :extra-deps  {io.github.clojure/tools.deps.alpha {:git/sha "5b8909bdb072d66c9f643bae50cd2878a0f694c2"}
                                     lambdaisland/kaocha         {:mvn/version "1.85.1342"}}}
 
             :test    {:extra-paths ["test"
