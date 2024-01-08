@@ -6,7 +6,7 @@
             ;; ui
             io.github.cljfx/cljfx     {:git/sha "60bb2dd6ca3331959600e67ad9eb401f7b09d83e"}
 
-            org.slf4j/slf4j-simple    {:mvn/version "2.0.10"}}
+            org.slf4j/slf4j-simple    {:mvn/version "2.0.11"}}
  :aliases  {:dev     {:jvm-opts    ["-Duser.timezone=UTC"
                                     "-XX:-OmitStackTraceInFastThrow"]
                       :extra-paths ["dev"
