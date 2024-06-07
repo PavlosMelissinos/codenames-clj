@@ -4,7 +4,7 @@
             expound/expound           {:mvn/version "0.9.0"}
 
             ;; ui
-            io.github.cljfx/cljfx     {:git/sha "ac528c1c53c1ffee868f36cfc4ae945be0e8ef5d"}
+            cljfx/cljfx               {:mvn/version "1.8.0"}
 
             org.slf4j/slf4j-simple    {:mvn/version "2.0.12"}}
  :aliases  {:dev     {:jvm-opts    ["-Duser.timezone=UTC"
