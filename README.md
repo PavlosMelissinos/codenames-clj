@@ -24,7 +24,7 @@ assassin.
   * [ ] Show whose turn it is
   * [ ] Main menu screen/Play again
 * [ ] Instructions/Demos/Screenshots
-* [ ] Web app
+* [x] Web app
 * [ ] Android app
 * [ ] Custom words (e.g. any language)
 * [ ] Word deck presets (e.g. Codenames variants)
