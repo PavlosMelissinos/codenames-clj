@@ -1,4 +1,4 @@
-(ns codenames-clj.ui.web.feat.app
+(ns codenames-clj.ui.web.app
   (:require [codenames-clj.ui.web.middleware :as mid]
             [codenames-clj.ui.web.ui :as ui]
             [codenames-clj.core :as logic]
@@ -146,7 +146,7 @@
   (biff/submit-tx sys [{:db/op :delete
                         :xt/id (parse-uuid id)}]))
 
-(defn handle-player-set-role [{:keys [session params biff/db match] :as req}]
+(defn handle-player-set-role [{:keys [session params biff/db match] :as ctx}]
   (let [user-id (:uid session)
         params  (-> params
                     (update :team keyword)
@@ -155,17 +155,17 @@
                     (assoc :match (:xt/id match)))
         player  (player-get db user-id (:xt/id match))]
     (if player
-      (player-update req player params)
-      (player-add req user-id params))
+      (player-update ctx player params)
+      (player-add ctx user-id params))
     [:div]))
 
-(defn handle-set-nickname [{:keys [session params player match] :as req}]
+(defn handle-set-nickname [{:keys [session params player match] :as ctx}]
   (let [nick    (get params :nick)
         player  (merge player
                        {:db/op :update
                         :db/doc-type :player
                         :player/nick nick})]
-    (biff/submit-tx req
+    (biff/submit-tx ctx
       [player
        {:db/doc-type  :action
         :db/op        :put
@@ -235,7 +235,7 @@
   (-> (grid db match-id)
       (nth card-idx)))
 
-(defn card-reveal [{:keys [session path-params biff/db player match] :as req}]
+(defn card-reveal [{:keys [session path-params biff/db player match] :as ctx}]
   (let [match-id (parse-uuid (:match-id path-params))
         card-idx (parse-long (:idx path-params))
         {:match/keys [grid phase active-team guesses-remaining status clue]} match
@@ -245,7 +245,7 @@
     (when (contains? (logic/permitted-actions game player-ctx) :guess-card)
       (let [new-game (logic/advance game {:move/type :guess-card :move/card-idx card-idx})]
         (when (not= game new-game)
-          (biff/submit-tx req
+          (biff/submit-tx ctx
             [{:db/doc-type            :match
               :db/op                  :update
               :xt/id                  match-id
@@ -264,7 +264,7 @@
               :action/type  :codenames/card-revealed}]))))
     {:status 200}))
 
-(defn handle-give-clue [{:keys [session params player match] :as req}]
+(defn handle-give-clue [{:keys [session params player match] :as ctx}]
   (let [match-id (:xt/id match)
         {:match/keys [grid phase active-team guesses-remaining status clue]} match
         game     {:grid grid :phase phase :active-team active-team
@@ -275,7 +275,7 @@
             number   (parse-long (get params :number))
             new-game (logic/advance game {:move/type :give-clue :move/word word :move/number number})]
         (when (not= game new-game)
-          (biff/submit-tx req
+          (biff/submit-tx ctx
             [{:db/doc-type            :match
               :db/op                  :update
               :xt/id                  match-id
@@ -294,7 +294,7 @@
               :action/type  :codenames/clue-given}]))))
     {:status 200}))
 
-(defn handle-pass-turn [{:keys [session player match] :as req}]
+(defn handle-pass-turn [{:keys [session player match] :as ctx}]
   (let [match-id (:xt/id match)
         {:match/keys [grid phase active-team guesses-remaining status clue]} match
         game     {:grid grid :phase phase :active-team active-team
@@ -303,7 +303,7 @@
     (when (contains? (logic/permitted-actions game player-ctx) :pass-turn)
       (let [new-game (logic/advance game {:move/type :pass-turn})]
         (when (not= game new-game)
-          (biff/submit-tx req
+          (biff/submit-tx ctx
             [{:db/doc-type            :match
               :db/op                  :update
               :xt/id                  match-id
@@ -398,15 +398,15 @@
        (ui/icon "arrow-left" {:class "w-6 h-6" :fill-mode :solid})
        "Back"]])]])
 
-(defn start-match [{:keys [params] :as req}]
+(defn start-match [{:keys [params] :as ctx}]
   (log/info "Starting match")
   (let [lang (get params :lang "en")
         grid-size (parse-long (get params :grid-size "5"))
         grid-area (* grid-size grid-size)
         w        (take grid-area (shuffle (words lang)))
-        req      (-> (assoc req :match/cfg (get default-cfg grid-area))
+        ctx      (-> (assoc ctx :match/cfg (get default-cfg grid-area))
                      (assoc-in [:match/cfg :words] w))
-        match-id (match-create req)]
+        match-id (match-create ctx)]
     {:status  303
      :headers {"location" (str "/app/match/" match-id)}}))
 
@@ -562,7 +562,7 @@
              :type "button"}
     "New match"]])
 
-(defn settings [{:keys [session biff/db] :as _req}]
+(defn settings [{:keys [session biff/db] :as _ctx}]
   (let [match-ids (matches-list db (:uid session))]
     [:div.contents
      [:div {:class "flex items-center"}
@@ -605,23 +605,23 @@
           :title email}
       (ui/icon "fa-user-gear" {:fill-mode :solid :stroke-width "1.5", :class "w-5 h-5"})]]))
 
-(defn banner [req]
+(defn banner [ctx]
   [:div.flex.h-full.rounded-xl.justify-between.bg-orange-300.items-center
    [:a {:href "/app"
         :class "px-3 py-3 mx-2 my-2 text-gray-600 font-bold text-2xl rounded focus:ring-0 hover:text-gray-500 text-center truncate"}
     "Codenames"]
-   (right-banner req)])
+   (right-banner ctx)])
 
 ;; banner end
 
 (defn app-wrapper
-  ([content-fn req]
+  ([content-fn ctx]
    (ui/page
     {}
-    (banner req)
+    (banner ctx)
     [:.h-10]
-    (content-fn req)))
-  ([req] (app-wrapper start-page req)))
+    (content-fn ctx)))
+  ([ctx] (app-wrapper start-page ctx)))
 
 (defn on-action [{:keys [biff/db]
                   :codenames-clj.ui.web/keys [match-clients]}
@@ -637,7 +637,7 @@
                         (render-match-content db match player)))]]
     (jetty/send! ws html)))
 
-(def features
+(def plugin
   {:routes ["/app" {:middleware [anti-forgery/wrap-anti-forgery
                                  biff/wrap-anti-forgery-websockets
                                  mid/wrap-signed-in]}

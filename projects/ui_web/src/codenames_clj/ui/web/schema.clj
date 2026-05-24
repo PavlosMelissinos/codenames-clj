@@ -49,5 +49,5 @@
                 [:mem/role [:enum :spymaster :spy :observer]]
                 [:mem/team {:optional true} [:enum :blue :red]]]})
 
-(def features
+(def plugin
   {:schema schema})

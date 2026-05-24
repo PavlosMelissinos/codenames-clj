@@ -1,7 +1,7 @@
 {:paths ["src" "resources" "target/resources"]
  :deps {org.clojure/clojure    {:mvn/version "1.11.1"}
         com.biffweb/biff       {:git/url "https://github.com/jacobobryant/biff"
-                                :tag "v0.7.0", :sha "6a5ba0a"}
+                                :tag "v0.7.4", :sha "3ff1256"}
         camel-snake-kebab/camel-snake-kebab {:mvn/version "0.4.3"}
         org.slf4j/slf4j-simple {:mvn/version "2.0.0-alpha5"}
         codenames-clj/core     {:local/root "../../"}}
