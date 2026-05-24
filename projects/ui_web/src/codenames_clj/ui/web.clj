@@ -1,21 +1,23 @@
 (ns codenames-clj.ui.web
   (:require [com.biffweb :as biff]
             [codenames-clj.ui.web.feat.app :as app]
-            [codenames-clj.ui.web.feat.auth :as auth]
+            [codenames-clj.ui.web.feat.email :as email]
             [codenames-clj.ui.web.feat.home :as home]
             [codenames-clj.ui.web.feat.worker :as worker]
-            [codenames-clj.ui.web.schema :refer [malli-opts]]
+            [codenames-clj.ui.web.schema :as schema]
             [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.test :as test]
             [clojure.tools.logging :as log]
-            [ring.middleware.anti-forgery :as anti-forgery]
+            [malli.core :as malc]
+            [malli.registry :as malr]
             [nrepl.cmdline :as nrepl-cmd]))
 
 (def features
   [app/features
-   auth/features
+   (biff/authentication-plugin {})
    home/features
+   schema/features
    worker/features])
 
 (def routes [["" {:middleware [biff/wrap-site-defaults]}
@@ -39,6 +41,13 @@
   (generate-assets! sys)
   (test/run-all-tests #"codenames-clj.ui.web.test.*"))
 
+
+(def malli-opts
+  {:registry (malr/composite-registry
+              malc/default-registry
+              (apply biff/safe-merge
+                     (keep :schema features)))})
+
 (def components
   [biff/use-config
    biff/use-secrets
@@ -55,6 +64,7 @@
 (defn start []
   (biff/start-system
    {:codenames-clj.ui.web/match-clients (atom {})
+    :biff/send-email #'email/send-email
     :biff/features #'features
     :biff/after-refresh `start
     :biff/handler #'handler

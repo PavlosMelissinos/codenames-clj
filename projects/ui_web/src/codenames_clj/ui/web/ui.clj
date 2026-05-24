@@ -1,6 +1,7 @@
 (ns codenames-clj.ui.web.ui
   (:require [cheshire.core :as cheshire]
             [clojure.java.io :as io]
+            [codenames-clj.ui.web.settings :as settings]
             [com.biffweb :as biff]
             [ring.middleware.anti-forgery :as csrf]))
 
@@ -40,13 +41,13 @@
     (str "/css/main.css?t=" (.lastModified f))
     "/css/main.css"))
 
-(defn base [opts & body]
+(defn base [{:keys [::recaptcha] :as opts} & body]
   (apply
    biff/base-html
    (-> opts
-       (merge #:base{:title "Codenames"
+       (merge #:base{:title settings/app-name
                      :lang "en-US"
-                     :description "Play Codenames with your friends"
+                     :description (str "Play " settings/app-name  " with your friends")
                      :image "/img/logo.png"})
        (update :base/head (fn [head]
                             (concat [[:link {:rel "stylesheet" :href (css-path)}]
@@ -54,7 +55,10 @@
                                      ;;[:link {:rel "icon" :type "image/svg+xml" :href "/favicon.svg"}].
                                      [:script {:src "https://unpkg.com/htmx.org@1.8.4"}]
                                      [:script {:src "https://unpkg.com/htmx.org@1.8.4/dist/ext/ws.js"}]
-                                     [:script {:src "https://unpkg.com/hyperscript.org@0.9.3"}]]
+                                     [:script {:src "https://unpkg.com/hyperscript.org@0.9.3"}]
+                                     (when recaptcha
+                                       [:script {:src "https://www.google.com/recaptcha/api.js"
+                                                 :async "async" :defer "defer"}])]
                                     head))))
    body))
 
