@@ -1,4 +1,4 @@
-(ns codenames-clj.ui.web.feat.email
+(ns codenames-clj.ui.web.email
   (:require [camel-snake-kebab.core :as csk]
             [camel-snake-kebab.extras :as cske]
             [clj-http.client :as http]
