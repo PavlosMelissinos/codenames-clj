@@ -1,6 +1,4 @@
-(ns codenames-clj.ui.web.schema
-  (:require [malli.core :as malc]
-            [malli.registry :as malr]))
+(ns codenames-clj.ui.web.schema)
 
 (def schema
   {:user/id    :uuid
@@ -51,8 +49,5 @@
                 [:mem/role [:enum :spymaster :spy :observer]]
                 [:mem/team {:optional true} [:enum :blue :red]]]})
 
-(def malli-opts {:registry (malr/composite-registry malc/default-registry schema)})
-
-(comment
-  (malc/validate [:vector int?] [1 2 3])
-  (malc/validate [:enum :spymaster :spy :observer] :spymaster))
+(def features
+  {:schema schema})
