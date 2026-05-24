@@ -3,10 +3,10 @@
             [codenames-clj.ui.web.app :as app]
             [codenames-clj.ui.web.email :as email]
             [codenames-clj.ui.web.home :as home]
+            [codenames-clj.ui.web.middleware :as mid]
             [codenames-clj.ui.web.worker :as worker]
             [codenames-clj.ui.web.schema :as schema]
-            [clojure.java.io :as io]
-            [clojure.string :as str]
+            [codenames-clj.ui.web.ui :as ui]
             [clojure.test :as test]
             [clojure.tools.logging :as log]
             [clojure.tools.namespace.repl :as tn-repl]
@@ -21,13 +21,13 @@
    schema/plugin
    worker/plugin])
 
-(def routes [["" {:middleware [biff/wrap-site-defaults]}
+(def routes [["" {:middleware [mid/wrap-site-defaults]}
               (keep :routes plugins)]
-             ["" {:middleware [biff/wrap-api-defaults]}
+             ["" {:middleware [mid/wrap-api-defaults]}
               (keep :api-routes plugins)]])
 
 (def handler (-> (biff/reitit-handler {:routes routes})
-                 biff/wrap-base-defaults))
+                 mid/wrap-base-defaults))
 
 (def static-pages (apply biff/safe-merge (map :static plugins)))
 
@@ -66,6 +66,7 @@
    :biff/handler #'handler
    :biff/malli-opts #'malli-opts
    :biff.beholder/on-save #'on-save
+   :biff.middleware/on-error #'ui/on-error
    :biff.xtdb/tx-fns biff/tx-fns})
 
 (defonce system (atom {}))

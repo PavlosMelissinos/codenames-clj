@@ -521,11 +521,15 @@
 (defn match [{{:keys [xt/id]} :match
               :biff/keys [db] :keys [player session] :as sys}]
   (log/info "Loading match...")
-  (let [player (or player (player-add sys (:uid session) {:match id}))]
-    [:div.space-y-2
-     {:hx-ext     "ws"
-      :ws-connect (format "/app/match/%s/event" id)}
-     (render-match-content db id player)]))
+  (if-not id
+    [:div.space-y-4.p-4
+     [:p "Match not found."]
+     [:a {:href "/app" :class "text-blue-600 hover:underline"} "Back to matches"]]
+    (let [player (or player (player-add sys (:uid session) {:match id}))]
+      [:div.space-y-2
+       {:hx-ext     "ws"
+        :ws-connect (format "/app/match/%s/event" id)}
+       (render-match-content db id player)])))
 
 (defn match-event [{:codenames-clj.ui.web/keys [match-clients]
                     :keys [player match]}]

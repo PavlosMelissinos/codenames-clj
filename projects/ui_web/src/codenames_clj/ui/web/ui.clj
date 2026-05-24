@@ -3,7 +3,8 @@
             [clojure.java.io :as io]
             [codenames-clj.ui.web.settings :as settings]
             [com.biffweb :as biff]
-            [ring.middleware.anti-forgery :as csrf]))
+            [ring.middleware.anti-forgery :as csrf]
+            [rum.core :as rum]))
 
 (def svg-data
   {"trash" {:viewbox "0 0 24 24"
@@ -41,6 +42,11 @@
     (str "/css/main.css?t=" (.lastModified f))
     "/css/main.css"))
 
+(defn js-path []
+  (if-some [f (io/file (io/resource "public/js/main.js"))]
+    (str "/js/main.js?t=" (.lastModified f))
+    "/js/main.js"))
+
 (defn base [{:keys [::recaptcha] :as ctx} & body]
   (apply
    biff/base-html
@@ -52,7 +58,7 @@
        (update :base/head (fn [head]
                             (concat [[:link {:rel "stylesheet" :href (css-path)}]
                                      [:link {:rel "icon" :href "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🕵️</text></svg>"}]
-                                     ;;[:link {:rel "icon" :type "image/svg+xml" :href "/favicon.svg"}].
+                                     [:script {:src (js-path)}]
                                      [:script {:src "https://unpkg.com/htmx.org@1.8.4"}]
                                      [:script {:src "https://unpkg.com/htmx.org@1.8.4/dist/ext/ws.js"}]
                                      [:script {:src "https://unpkg.com/hyperscript.org@0.9.3"}]
@@ -71,3 +77,14 @@
        {:hx-headers (cheshire/generate-string
                      {:x-csrf-token csrf/*anti-forgery-token*})})
      body]]))
+
+(defn on-error [{:keys [status ex] :as ctx}]
+  {:status status
+   :headers {"content-type" "text/html"}
+   :body (rum/render-static-markup
+          (page
+           ctx
+           [:h1.text-lg.font-bold
+            (if (= status 404)
+              "Page not found."
+              "Something went wrong.")]))})
