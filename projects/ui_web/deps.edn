@@ -4,7 +4,7 @@
                                              :tag "v0.7.15", :sha "b730c85"}
         camel-snake-kebab/camel-snake-kebab {:mvn/version "0.4.3"}
         codenames-clj/core                  {:local/root "../../"}
-        metosin/muuntaja                    {:mvn/version "0.6.8"}
+        metosin/muuntaja                    {:mvn/version "0.6.12"}
         ring/ring-defaults                  {:mvn/version "0.3.4"}
         org.slf4j/slf4j-simple              {:mvn/version "2.0.0-alpha5"}}
  :aliases {:dev {:extra-paths ["dev"]
