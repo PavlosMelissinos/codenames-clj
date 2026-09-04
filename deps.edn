@@ -6,7 +6,7 @@
             ;; ui
             cljfx/cljfx               {:mvn/version "1.10.8"}
 
-            org.slf4j/slf4j-simple    {:mvn/version "2.0.18"}}
+            org.slf4j/slf4j-simple    {:mvn/version "2.0.19"}}
  :aliases  {:dev     {:jvm-opts    ["-Duser.timezone=UTC"
                                     "-XX:-OmitStackTraceInFastThrow"]
                       :extra-paths ["dev"
