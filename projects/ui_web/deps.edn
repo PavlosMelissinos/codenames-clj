@@ -8,4 +8,4 @@
         ring/ring-defaults                  {:mvn/version "0.3.4"}
         org.slf4j/slf4j-simple              {:mvn/version "2.0.0-alpha5"}}
  :aliases {:dev {:extra-paths ["dev"]
-                 :extra-deps {org.clj-commons/hickory {:mvn/version "0.7.3"}}}}}
+                 :extra-deps {org.clj-commons/hickory {:mvn/version "0.7.7"}}}}}
