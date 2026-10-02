@@ -1,4 +1,4 @@
 {:paths ["src"]
  :deps {com.biffweb/tasks {:git/url "https://github.com/jacobobryant/biff"
-                           :tag "v0.7.15", :sha "b730c85"
+                           :tag "v0.7.15", :sha "7f6cad6738ab743ee23957dd1b11d130db48d94a"
                            :deps/root "tasks"}}}
